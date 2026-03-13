@@ -1,4 +1,4 @@
-# Vite Plugin AppDev Design Mode
+# Vite Plugin Design Mode
 
 一个为AppDev启用设计模式功能的Vite插件，为React组件提供源码映射和可视化编辑功能。
 
