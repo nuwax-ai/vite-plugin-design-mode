@@ -64,7 +64,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc && tsc -p tsconfig.cli.json && node scripts/copy-client.mjs && node scripts/clean-maps.mjs",
-    "publish": "npm run build && npm publish --access=public",
+    "release": "npm run build && npm publish --access=public",
     "build:cli": "tsc -p tsconfig.cli.json",
     "test": "vitest",
     "test:run": "vitest run",
