@@ -13,7 +13,7 @@ export function transformSourceCode(
 
 
 
-    // 解析源码为AST
+    // Parse source into AST (via Babel transform)
     // Use a single transform call to ensure our plugin runs before presets compile JSX
     const result = babelApi.transform(code, {
       ast: false, // We don't need the AST output

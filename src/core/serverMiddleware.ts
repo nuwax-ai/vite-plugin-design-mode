@@ -7,9 +7,7 @@ export function createServerMiddleware(
   options: Required<DesignModeOptions>,
   rootDir: string
 ) {
-  // 获取备份配置，默认为 false
   const enableBackup = options.enableBackup === true;
-  // 获取历史记录配置，默认为 false
   const enableHistory = options.enableHistory === true;
 
   return async (req: any, res: any) => {
@@ -17,7 +15,7 @@ export function createServerMiddleware(
 
     try {
       switch (url.pathname) {
-        // 现有端点
+        // Core endpoints
         case '/get-source':
           await handleGetSource(url, res, rootDir);
           break;
@@ -28,7 +26,7 @@ export function createServerMiddleware(
           await handleHealthCheck(res);
           break;
 
-        // 新增端点
+        // Extended endpoints
         case '/update':
           await handleUpdate(req, res, rootDir, enableBackup);
           break;
@@ -84,7 +82,7 @@ export function createServerMiddleware(
 }
 
 /**
- * 获取元素源码信息（增强版）
+ * GET /get-source — enriched source snapshot for an element id.
  */
 async function handleGetSource(url: URL, res: any, rootDir: string) {
   const elementId = url.searchParams.get('elementId');
@@ -96,7 +94,7 @@ async function handleGetSource(url: URL, res: any, rootDir: string) {
   }
 
   try {
-    // 解析elementId获取文件位置
+    // Parse elementId → file position
     const sourceInfo = parseElementId(elementId);
 
     if (!sourceInfo) {
@@ -105,10 +103,8 @@ async function handleGetSource(url: URL, res: any, rootDir: string) {
       return;
     }
 
-    // 读取文件内容
     const filePath = path.resolve(rootDir, sourceInfo.fileName);
 
-    // 检查文件是否存在
     try {
       await fs.promises.access(filePath, fs.constants.F_OK);
     } catch {
@@ -119,7 +115,7 @@ async function handleGetSource(url: URL, res: any, rootDir: string) {
 
     const fileContent = await fs.promises.readFile(filePath, 'utf-8');
 
-    // 获取指定行
+    // Target line + context window
     const lines = fileContent.split('\n');
     const targetLine = Math.max(0, sourceInfo.lineNumber - 1);
     const contextLines = lines.slice(
@@ -127,7 +123,7 @@ async function handleGetSource(url: URL, res: any, rootDir: string) {
       Math.min(lines.length, targetLine + 5)
     );
 
-    // 增强的返回数据
+    // Response payload
     const response = {
       sourceInfo: {
         ...sourceInfo,
@@ -161,7 +157,7 @@ async function handleGetSource(url: URL, res: any, rootDir: string) {
 }
 
 /**
- * 修改源码
+ * POST /modify-source — legacy style update.
  */
 async function handleModifySource(req: any, res: any, rootDir: string) {
   if (req.method !== 'POST') {
@@ -185,7 +181,7 @@ async function handleModifySource(req: any, res: any, rootDir: string) {
         return;
       }
 
-      // 解析elementId
+      // Parse elementId
       const sourceInfo = parseElementId(elementId);
       if (!sourceInfo) {
         res.statusCode = 400;
@@ -193,7 +189,6 @@ async function handleModifySource(req: any, res: any, rootDir: string) {
         return;
       }
 
-      // 读取并修改文件
       const filePath = path.resolve(rootDir, sourceInfo.fileName);
       const fileContent = await fs.promises.readFile(filePath, 'utf-8');
 
@@ -209,7 +204,7 @@ async function handleModifySource(req: any, res: any, rootDir: string) {
         rootDir
       );
 
-      // 写回文件
+      // Persist
       await fs.promises.writeFile(filePath, updatedContent, 'utf-8');
 
       res.statusCode = 200;
@@ -232,7 +227,7 @@ async function handleModifySource(req: any, res: any, rootDir: string) {
 }
 
 /**
- * 健康检查
+ * GET /health
  */
 async function handleHealthCheck(res: any) {
   res.statusCode = 200;
@@ -246,8 +241,7 @@ async function handleHealthCheck(res: any) {
 }
 
 /**
- * 统一更新接口
- * 支持样式、内容、属性更新
+ * POST /update — style, content, or attribute.
  */
 async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: boolean = false) {
   if (req.method !== 'POST') {
@@ -266,7 +260,7 @@ async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: b
       const updateData = JSON.parse(body);
       const { filePath, line, column, newValue, originalValue, type } = updateData;
 
-      // 参数验证
+      // Validate body
       if (!filePath || line === undefined || column === undefined || newValue === undefined || !type) {
         res.statusCode = 400;
         res.end(JSON.stringify({ error: 'Missing required parameters' }));
@@ -279,10 +273,8 @@ async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: b
         return;
       }
 
-      // 读取并修改文件
       const fullFilePath = path.resolve(rootDir, filePath);
 
-      // 检查文件是否存在
       try {
         await fs.promises.access(fullFilePath, fs.constants.F_OK);
       } catch {
@@ -301,7 +293,7 @@ async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: b
         return;
       }
 
-      // 智能文本替换
+      // Line-aware replace
       const updatedContent = await smartReplaceInSource(
         fileContent,
         {
@@ -314,17 +306,17 @@ async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: b
         rootDir
       );
 
-      // 根据配置决定是否创建备份
+      // Optional .backup copy
       let backupPath: string | undefined;
       if (enableBackup) {
         backupPath = `${fullFilePath}.backup.${Date.now()}`;
         await fs.promises.writeFile(backupPath, fileContent, 'utf-8');
       }
 
-      // 写回文件
+      // Persist
       await fs.promises.writeFile(fullFilePath, updatedContent, 'utf-8');
 
-      // 记录操作
+      // Audit record (in-memory response)
       const updateRecord = {
         id: `update_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         filePath,
@@ -362,7 +354,7 @@ async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: b
 }
 
 /**
- * 批量更新接口
+ * POST /batch-update
  */
 async function handleBatchUpdate(req: any, res: any, rootDir: string, enableBackup: boolean = false, enableHistory: boolean = false) {
   if (req.method !== 'POST') {
@@ -386,12 +378,12 @@ async function handleBatchUpdate(req: any, res: any, rootDir: string, enableBack
         return;
       }
 
-      // 验证批量更新
+      // Validate each item
       const validationResults = await Promise.allSettled(
         updates.map(update => validateUpdateRequest(update, rootDir))
       );
 
-      // 创建批量更新会话
+      // Batch session id
       const batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const batchSession: {
         id: string;
@@ -409,7 +401,7 @@ async function handleBatchUpdate(req: any, res: any, rootDir: string, enableBack
         updates: []
       };
 
-      // 处理每个更新
+      // Apply updates sequentially
       const results = [];
       for (let i = 0; i < updates.length; i++) {
         const update = updates[i];
@@ -445,7 +437,7 @@ async function handleBatchUpdate(req: any, res: any, rootDir: string, enableBack
         }
       }
 
-      // 根据配置决定是否保存批量更新会话到文件
+      // Persist session JSON when history enabled
       if (enableHistory) {
         const sessionFile = path.join(rootDir, '.appdev_batch_sessions.json');
         let sessions = {};
@@ -453,7 +445,7 @@ async function handleBatchUpdate(req: any, res: any, rootDir: string, enableBack
           const existingSessionsContent = await fs.promises.readFile(sessionFile, 'utf-8');
           sessions = JSON.parse(existingSessionsContent);
         } catch {
-          // 文件不存在或无法读取，创建新的
+          // Missing or unreadable → start empty
         }
 
         (sessions as any)[batchId] = batchSession;
@@ -485,7 +477,7 @@ async function handleBatchUpdate(req: any, res: any, rootDir: string, enableBack
 }
 
 /**
- * 批量更新状态查询
+ * GET /batch-update-status
  */
 async function handleBatchUpdateStatus(req: any, res: any, rootDir: string, enableHistory: boolean = false) {
   const batchId = req.url.split('?')[1]?.split('=')[1];
@@ -496,7 +488,6 @@ async function handleBatchUpdateStatus(req: any, res: any, rootDir: string, enab
     return;
   }
 
-  // 如果历史记录功能被禁用，返回错误
   if (!enableHistory) {
     res.statusCode = 400;
     res.end(JSON.stringify({
@@ -514,7 +505,7 @@ async function handleBatchUpdateStatus(req: any, res: any, rootDir: string, enab
       const existingSessionsContent = await fs.promises.readFile(sessionFile, 'utf-8');
       sessions = JSON.parse(existingSessionsContent);
     } catch {
-      // 文件不存在
+      // Session file missing
       res.statusCode = 404;
       res.end(JSON.stringify({ error: 'Batch session not found' }));
       return;
@@ -543,7 +534,7 @@ async function handleBatchUpdateStatus(req: any, res: any, rootDir: string, enab
 }
 
 /**
- * 撤销操作
+ * POST /undo — restore from backup when backups enabled.
  */
 async function handleUndo(req: any, res: any, rootDir: string, enableBackup: boolean = false) {
   if (req.method !== 'POST') {
@@ -567,7 +558,6 @@ async function handleUndo(req: any, res: any, rootDir: string, enableBackup: boo
         return;
       }
 
-      // 如果备份功能被禁用，返回错误
       if (!enableBackup) {
         res.statusCode = 400;
         res.end(JSON.stringify({
@@ -577,7 +567,7 @@ async function handleUndo(req: any, res: any, rootDir: string, enableBackup: boo
         return;
       }
 
-      // 查找并恢复备份文件
+      // Find backup sidecar files
       const backupFiles = await fs.promises.readdir(rootDir);
       const matchingBackups = backupFiles
         .filter(file => file.startsWith('.') && file.includes('.backup.') && file.includes(batchId));
@@ -588,16 +578,15 @@ async function handleUndo(req: any, res: any, rootDir: string, enableBackup: boo
         return;
       }
 
-      // 找到最新的备份文件
+      // Pick lexicographically latest (timestamp suffix)
       const latestBackup = matchingBackups.sort().pop()!;
       const backupPath = path.join(rootDir, latestBackup);
       const originalFile = backupPath.replace(/\.backup\.\d+$/, '');
 
-      // 恢复备份
+      // Restore from backup
       const backupContent = await fs.promises.readFile(backupPath, 'utf-8');
       await fs.promises.writeFile(originalFile, backupContent, 'utf-8');
 
-      // 删除备份文件
       await fs.promises.unlink(backupPath);
 
       res.statusCode = 200;
@@ -621,20 +610,18 @@ async function handleUndo(req: any, res: any, rootDir: string, enableBackup: boo
 }
 
 /**
- * 重做操作
+ * POST /redo — not implemented.
  */
 async function handleRedo(req: any, res: any, rootDir: string) {
-  // 重做操作的实现逻辑
-  // 这里可以基于历史记录重新应用之前的更新
+  // Could re-apply updates from `.appdev_batch_sessions.json`
   res.statusCode = 501;
   res.end(JSON.stringify({ error: 'Redo operation not yet implemented' }));
 }
 
 /**
- * 获取更新历史
+ * GET /get-history
  */
 async function handleGetHistory(req: any, res: any, rootDir: string, enableHistory: boolean = false) {
-  // 如果历史记录功能被禁用，返回错误
   if (!enableHistory) {
     res.statusCode = 400;
     res.end(JSON.stringify({
@@ -652,7 +639,7 @@ async function handleGetHistory(req: any, res: any, rootDir: string, enableHisto
       const existingSessionsContent = await fs.promises.readFile(sessionFile, 'utf-8');
       sessions = JSON.parse(existingSessionsContent);
     } catch {
-      // 文件不存在，返回空历史
+      // No session file → empty history
     }
 
     res.statusCode = 200;
@@ -671,7 +658,7 @@ async function handleGetHistory(req: any, res: any, rootDir: string, enableHisto
 }
 
 /**
- * 验证更新请求
+ * POST /validate-update
  */
 async function handleValidateUpdate(req: any, res: any, rootDir: string) {
   if (req.method !== 'POST') {
@@ -707,10 +694,10 @@ async function handleValidateUpdate(req: any, res: any, rootDir: string) {
 }
 
 /**
- * 辅助函数
+ * Helpers
  */
 
-// 解析elementId获取源码位置
+// Parse `elementId` → file + line + column
 function parseElementId(
   elementId: string
 ): { fileName: string; lineNumber: number; columnNumber: number } | null {
@@ -735,7 +722,7 @@ function parseElementId(
   };
 }
 
-// 智能替换源码
+// Line-oriented smart replace
 async function smartReplaceInSource(
   content: string,
   options: {
@@ -760,15 +747,12 @@ async function smartReplaceInSource(
   try {
     switch (options.type) {
       case 'style':
-        // 处理样式更新
         newLine = await smartReplaceStyle(line, options);
         break;
       case 'content':
-        // 处理内容更新
         newLine = await smartReplaceContent(line, options);
         break;
       case 'attribute':
-        // 处理属性更新
         newLine = await smartReplaceAttribute(line, options);
         break;
     }
@@ -781,45 +765,34 @@ async function smartReplaceInSource(
   }
 }
 
-// 智能样式替换
-// 智能样式替换
 async function smartReplaceStyle(line: string, options: any): Promise<string> {
   const { newValue } = options;
 
-  // 1. 尝试匹配 className="..." 或 className='...'
+  // 1) className="..." or className='...'
   const classNameRegex = /className=(["'])(.*?)\1/;
   if (classNameRegex.test(line)) {
     return line.replace(classNameRegex, `className=$1${newValue}$1`);
   }
 
-  // 2. 尝试匹配 className={...}
+  // 2) className={...} → coerce to static string (design mode output)
   const classNameExpressionRegex = /className=\{([^}]*)\}/;
   if (classNameExpressionRegex.test(line)) {
-    // 如果是表达式，我们将其替换为字符串形式，因为设计模式通常输出静态字符串
-    // 如果需要保留表达式逻辑（如 cn(...)），则需要更复杂的解析，目前简化处理
     return line.replace(classNameExpressionRegex, `className="${newValue}"`);
   }
 
-  // 3. 如果没有 className 属性，尝试插入到标签名之后
-  // 匹配 <TagName 或 <Component.Name
+  // 3) No className: insert after opening tag name (<Foo or <div)
   const tagMatch = line.match(/<([A-Z][a-zA-Z0-9.]*|[a-z][a-z0-9-]*)/);
   if (tagMatch) {
     const tagName = tagMatch[1];
-    // 在标签名后插入 className
-    // 注意：这里简单地插入到标签名后，可能会导致格式问题（如缺少空格），但通常是安全的
-    // 更严谨的做法是检查标签名后是否有属性，如果有，插入到第一个属性前
     return line.replace(tagName, `${tagName} className="${newValue}"`);
   }
 
-  // 4. 如果都无法匹配（例如不在标签行），为了安全起见，返回原行
-  // 绝对不要直接返回 newValue，否则会覆盖整行代码
+  // 4) No safe match — never replace the whole line with `newValue`
   console.warn('[DesignMode] Failed to match className or tag in line:', line);
   throw new Error('Cannot find a valid location to insert className. The component might not support styling or has complex syntax.');
 }
 
-// 智能内容替换
 async function smartReplaceContent(line: string, options: any): Promise<string> {
-  // 对于React JSX内容，可以使用更精确的替换
   if (options.originalValue && line.includes(options.originalValue)) {
     return line.replace(
       new RegExp(escapeRegExp(options.originalValue), 'g'),
@@ -827,7 +800,7 @@ async function smartReplaceContent(line: string, options: any): Promise<string> 
     );
   }
 
-  // 如果在标签内容中，尝试替换标签内容部分
+  // Between `>` and `<` when it matches original
   const contentMatch = line.match(/>([^<]*)</);
   if (contentMatch && contentMatch[1] === options.originalValue) {
     return line.replace(contentMatch[0], `>${options.newValue}<`);
@@ -836,27 +809,23 @@ async function smartReplaceContent(line: string, options: any): Promise<string> 
   return options.newValue;
 }
 
-// 智能属性替换
 async function smartReplaceAttribute(line: string, options: any): Promise<string> {
-  // 实现属性替换逻辑
   return line.replace(
     new RegExp(`${options.attributeName}="[^"]*"`),
     `${options.attributeName}="${options.newValue}"`
   );
 }
 
-// 验证更新请求
 async function validateUpdateRequest(update: any, rootDir: string): Promise<{ valid: boolean; errors: string[] }> {
   const errors: string[] = [];
 
-  // 检查必要字段
   if (!update.filePath) errors.push('Missing filePath');
   if (update.line === undefined) errors.push('Missing line');
   if (update.column === undefined) errors.push('Missing column');
   if (update.newValue === undefined) errors.push('Missing newValue');
   if (!update.type) errors.push('Missing type');
 
-  // 检查文件路径
+  // File must exist under root
   if (update.filePath) {
     const fullPath = path.resolve(rootDir, update.filePath);
     try {
@@ -866,7 +835,7 @@ async function validateUpdateRequest(update: any, rootDir: string): Promise<{ va
     }
   }
 
-  // 检查更新类型
+  // type ∈ style | content | attribute
   if (update.type && !['style', 'content', 'attribute'].includes(update.type)) {
     errors.push(`Invalid update type: ${update.type}`);
   }
@@ -877,7 +846,7 @@ async function validateUpdateRequest(update: any, rootDir: string): Promise<{ va
   };
 }
 
-// 处理单个更新
+// Single item inside batch
 async function processSingleUpdate(update: any, rootDir: string, batchId: string, enableBackup: boolean = false): Promise<any> {
   try {
     const validation = await validateUpdateRequest(update, rootDir);
@@ -904,13 +873,11 @@ async function processSingleUpdate(update: any, rootDir: string, batchId: string
       rootDir
     );
 
-    // 根据配置决定是否创建备份
     if (enableBackup) {
       const backupPath = `${fullFilePath}.backup.${Date.now()}`;
       await fs.promises.writeFile(backupPath, fileContent, 'utf-8');
     }
 
-    // 写回文件
     await fs.promises.writeFile(fullFilePath, updatedContent, 'utf-8');
 
     return {
@@ -930,33 +897,32 @@ async function processSingleUpdate(update: any, rootDir: string, batchId: string
   }
 }
 
-// 检查文件是否有修改
+// Heuristic: file touched in last 5 minutes
 async function checkForModifications(filePath: string): Promise<boolean> {
   try {
     const stat = await fs.promises.stat(filePath);
     const lastModified = stat.mtime.getTime();
     const now = Date.now();
 
-    // 如果文件在最近5分钟内被修改过
     return (now - lastModified) < 5 * 60 * 1000;
   } catch {
     return false;
   }
 }
 
-// 从行中提取标签名
+// Best-effort tag from a source line
 function extractTagNameFromLine(line: string): string {
   const tagMatch = line.match(/<(\w+)/);
   return tagMatch ? tagMatch[1] : 'unknown';
 }
 
-// 从行中提取类名
+// className="..." substring
 function extractClassNameFromLine(line: string): string {
   const classMatch = line.match(/className\s*=\s*["']([^"']+)["']/);
   return classMatch ? classMatch[1] : '';
 }
 
-// 获取行的上下文信息
+// Neighbor lines around index
 function getLineContext(lines: string[], targetLine: number): { before: string; current: string; after: string } {
   return {
     before: lines[Math.max(0, targetLine - 1)] || '',
@@ -965,7 +931,6 @@ function getLineContext(lines: string[], targetLine: number): { before: string; 
   };
 }
 
-// 转义正则表达式
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

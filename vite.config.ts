@@ -14,7 +14,7 @@ export default defineConfig({
         '@babel/core', 
         '@babel/traverse', 
         '@babel/types',
-        '@babel/standalone', // 外部依赖，不打包进代码
+        '@babel/standalone', // External dependency; do not bundle
         'url',
         'path',
         'fs',

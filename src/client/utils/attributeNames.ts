@@ -1,22 +1,16 @@
 /**
- * 属性名工具函数
- * 用于统一管理源码映射相关的 DOM 属性名，支持可配置的前缀
- * 这样可以避免与用户自定义的 data-* 属性冲突
+ * Resolved `data-*` names for source mapping (prefix from global config or meta tag).
  */
 
-// 默认前缀（如果配置未注入，使用此默认值）
 const DEFAULT_PREFIX = 'data-xagi';
 
-// 从全局配置或 meta 标签获取属性前缀
 function getAttributePrefix(): string {
-  // 尝试从全局变量获取
   if (typeof window !== 'undefined') {
     const globalConfig = (window as any).__APPDEV_DESIGN_MODE_CONFIG__;
     if (globalConfig?.attributePrefix) {
       return globalConfig.attributePrefix;
     }
 
-    // 尝试从 meta 标签获取
     const metaTag = document.querySelector('meta[name="appdev-design-mode:attribute-prefix"]');
     if (metaTag) {
       const prefix = metaTag.getAttribute('content');
@@ -29,13 +23,10 @@ function getAttributePrefix(): string {
   return DEFAULT_PREFIX;
 }
 
-// 缓存前缀值，避免重复查询
+/** Cached prefix */
 let cachedPrefix: string | null = null;
 
-/**
- * 获取属性前缀
- * @returns 属性前缀字符串
- */
+/** e.g. `data-xagi` */
 export function getPrefix(): string {
   if (cachedPrefix === null) {
     cachedPrefix = getAttributePrefix();
@@ -43,26 +34,18 @@ export function getPrefix(): string {
   return cachedPrefix;
 }
 
-/**
- * 重置缓存的前缀（用于测试或配置更新）
- */
+/** Call after changing `window.__APPDEV_DESIGN_MODE_CONFIG__` in tests. */
 export function resetPrefixCache(): void {
   cachedPrefix = null;
 }
 
-/**
- * 获取完整的属性名
- * @param suffix 属性后缀（如 'file', 'line', 'info' 等）
- * @returns 完整的属性名（如 'data-source-file'）
- */
+/** `{prefix}-{suffix}` */
 export function getAttributeName(suffix: string): string {
   const prefix = getPrefix();
   return `${prefix}-${suffix}`;
 }
 
-/**
- * 属性名常量（使用函数确保使用最新配置）
- */
+/** Lazy getters so prefix changes propagate */
 export const AttributeNames = {
   get file() {
     return getAttributeName('file');
@@ -116,11 +99,7 @@ export const AttributeNames = {
   },
 } as const;
 
-/**
- * 检查属性名是否属于源码映射属性
- * @param attributeName 属性名
- * @returns 是否为源码映射属性
- */
+/** True for any `{prefix}-*` */
 export function isSourceMappingAttribute(attributeName: string): boolean {
   const prefix = getPrefix();
   return attributeName.startsWith(`${prefix}-`);

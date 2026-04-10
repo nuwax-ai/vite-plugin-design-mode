@@ -12,8 +12,8 @@ export interface SourceMappingInfo {
   functionName?: string;
   elementId: string;
   attributePrefix: string;
-  importPath?: string; // 新增：组件导入路径
-  isUIComponent?: boolean; // 新增：是否是 UI 组件（components/ui 目录下的组件）
+  importPath?: string; // Resolved import path for the component
+  isUIComponent?: boolean; // True when file is under components/ui (UI kit)
 }
 
 
@@ -26,30 +26,30 @@ type PluginItem = any;
 type NodePath = any;
 
 /**
- * 检查文件路径是否是 UI 组件（components/ui 目录下的组件）
- * 这些组件在运行时应该显示其使用位置而非定义位置
+ * Whether the source file lives under a UI-kit folder (components/ui).
+ * Runtime selection prefers usage site over definition for these.
  */
 function isUIComponentFile(filePath: string): boolean {
-  // 匹配 /components/ui/ 或 \components\ui\ 路径
+  // Match /components/ui/ or \components\ui\
   return /[/\\]components[/\\]ui[/\\]/.test(filePath);
 }
 
 /**
- * 创建源码映射Babel插件
+ * Babel plugin factory: inject source-mapping data attributes.
  */
 export function createSourceMappingPlugin(
   fileName: string,
   options: Required<DesignModeOptions>
 ): PluginItem {
   const { attributePrefix } = options;
-  const imports: Record<string, string> = {}; // 存储导入映射：组件名 -> 导入路径
+  const imports: Record<string, string> = {}; // local name -> module specifier
 
   return {
     visitor: {
-      // 1. 收集导入信息
+      // 1) Collect import bindings
       ImportDeclaration(path: NodePath) {
         const { node } = path;
-        const sourceValue = node.source.value; // 导入路径，例如 "@/components/ui/button"
+        const sourceValue = node.source.value; // e.g. "@/components/ui/button"
 
         node.specifiers.forEach((specifier: any) => {
           if (t.isImportSpecifier(specifier)) {
@@ -70,16 +70,13 @@ export function createSourceMappingPlugin(
       JSXOpeningElement(path: NodePath) {
         const { node } = path;
 
-        // 检查是否有位置信息
         const location = node.loc;
         if (!location) return;
 
-        // 获取组件信息
         const componentInfo = extractComponentInfo(path);
         const elementType = getJSXElementName(node.name);
 
-        // 查找导入路径
-        // 如果是成员表达式 (e.g. UI.Button)，只查找对象部分 (UI)
+        // Resolve import path for JSX name (member expr uses object part only)
         let importPath: string | undefined;
         if (t.isJSXIdentifier(node.name)) {
           importPath = imports[node.name.name];
@@ -91,10 +88,8 @@ export function createSourceMappingPlugin(
         //   console.log(`[DesignMode] Injecting importPath for ${elementType}: ${importPath}`);
         // }
 
-        // 检查当前文件是否是 UI 组件
         const isUIComponent = isUIComponentFile(fileName);
 
-        // 构建源码位置信息
         const sourceInfo: SourceMappingInfo = {
           fileName: fileName,
           lineNumber: location.start.line,
@@ -104,21 +99,18 @@ export function createSourceMappingPlugin(
           functionName: componentInfo.functionName,
           elementId: generateElementId(node, fileName, location),
           attributePrefix,
-          importPath, // 注入导入路径
-          isUIComponent // 标记是否是 UI 组件
+          importPath,
+          isUIComponent
         };
 
 
-        // 添加源码信息属性（使用配置的前缀）
         addSourceInfoAttribute(node, sourceInfo, options);
 
-        // 添加简化位置属性
         addPositionAttribute(node, location, options);
 
-        // 添加元素ID属性
         addElementIdAttribute(node, sourceInfo, options);
 
-        // 移除单独的属性以减少 DOM 体积（所有信息已包含在 info 属性中）
+        // Optional: extra per-field attrs (disabled to keep DOM small; info JSON holds all)
         // addIndividualAttributes(node, sourceInfo, options);
 
         // Check if content is static and add attribute
@@ -136,17 +128,14 @@ export function createSourceMappingPlugin(
         const { node } = path;
         const { openingElement, children } = node;
 
-        // 只处理有静态文本children的元素
         if (!children || children.length === 0) return;
 
-        // 检查children是否包含JSXText（静态文本）
         const hasStaticText = children.some((child: any) => t.isJSXText(child) && child.value.trim() !== '');
 
         if (hasStaticText) {
-          // 获取第一个非空文本节点的位置
           const textChild = children.find((child: any) => t.isJSXText(child) && child.value.trim() !== '');
           if (textChild && textChild.loc) {
-            // 添加 children-source 属性，记录文本的来源位置
+            // children-source: where static text came from (for pass-through components)
             const childrenSourceValue = `${fileName}:${textChild.loc.start.line}:${textChild.loc.start.column}`;
             const attributeName = `${attributePrefix}-children-source`;
 
@@ -164,12 +153,12 @@ export function createSourceMappingPlugin(
 }
 
 /**
- * 提取组件信息
+ * Best-effort enclosing React component / function name.
  */
 function extractComponentInfo(path: NodePath): { componentName?: string; functionName?: string } {
   const componentInfo: { componentName?: string; functionName?: string } = {};
 
-  // 查找最近的函数声明或类声明
+  // Nearest function or class
   const functionParent = path.findParent((p: NodePath) =>
     t.isFunctionDeclaration(p.node) ||
     t.isArrowFunctionExpression(p.node) ||
@@ -181,7 +170,7 @@ function extractComponentInfo(path: NodePath): { componentName?: string; functio
 
     if (t.isFunctionDeclaration(node) && node.id?.name) {
       componentInfo.functionName = node.id.name;
-      // React组件约定：大写开头
+      // React: components are PascalCase
       if (/^[A-Z]/.test(node.id.name)) {
         componentInfo.componentName = node.id.name;
       }
@@ -193,7 +182,7 @@ function extractComponentInfo(path: NodePath): { componentName?: string; functio
     }
   }
 
-  // 如果没有找到函数，检查是否为变量声明
+  // Fallback: const Foo = ...
   const variableParent = path.findParent((p: NodePath) =>
     t.isVariableDeclarator(p.node)
   );
@@ -212,7 +201,7 @@ function extractComponentInfo(path: NodePath): { componentName?: string; functio
 }
 
 /**
- * 获取JSX元素名称
+ * JSX tag name as string (identifier or member root).
  */
 function getJSXElementName(name: any): string {
   if (t.isJSXIdentifier(name)) {
@@ -224,19 +213,17 @@ function getJSXElementName(name: any): string {
 }
 
 /**
- * 生成元素唯一标识符
+ * Stable id: file:line:col_tag#id
  */
 function generateElementId(node: t.JSXOpeningElement, fileName: string, location: t.SourceLocation): string {
   const tagName = getJSXElementName(node.name);
 
-  // 提取关键属性
-  // const className = extractStringAttribute(node, 'className'); // 移除 className 以缩短 ID
+  // const className = extractStringAttribute(node, 'className'); // omitted to shorten id
   const id = extractStringAttribute(node, 'id');
 
-  // 构建唯一标识符
   const baseId = `${fileName}:${location.start.line}:${location.start.column}`;
   const tag = tagName.toLowerCase();
-  // const cls = className ? className.replace(/\s+/g, '-') : ''; // 移除 className
+  // const cls = className ? className.replace(/\s+/g, '-') : '';
   const elementId = id ? `#${id}` : '';
 
   // return `${baseId}_${tag}${cls ? '_' + cls : ''}${elementId}`;
@@ -244,7 +231,7 @@ function generateElementId(node: t.JSXOpeningElement, fileName: string, location
 }
 
 /**
- * 提取字符串属性值
+ * String literal JSX attribute value, if any.
  */
 function extractStringAttribute(node: t.JSXOpeningElement, attributeName: string): string | null {
   const attr = node.attributes.find(a =>
@@ -259,17 +246,17 @@ function extractStringAttribute(node: t.JSXOpeningElement, attributeName: string
 }
 
 /**
- * 添加源码信息属性
+ * Inject compact JSON on `{prefix}-info`.
  */
 function addSourceInfoAttribute(node: t.JSXOpeningElement, sourceInfo: SourceMappingInfo, options: Required<DesignModeOptions>) {
   const { attributePrefix } = options;
 
-  // 移除现有的源码信息属性
+  // Remove previous info attr
   node.attributes = node.attributes.filter(a =>
     !(t.isJSXAttribute(a) && t.isJSXIdentifier(a.name) && a.name.name === `${attributePrefix}-info`)
   );
 
-  // 添加新的属性
+  // Push new JSON attr
   const attr = t.jSXAttribute(
     t.jSXIdentifier(`${attributePrefix}-info`),
     t.stringLiteral(JSON.stringify({
@@ -280,8 +267,8 @@ function addSourceInfoAttribute(node: t.JSXOpeningElement, sourceInfo: SourceMap
       componentName: sourceInfo.componentName,
       functionName: sourceInfo.functionName,
       elementId: sourceInfo.elementId,
-      importPath: sourceInfo.importPath, // 包含导入路径
-      isUIComponent: sourceInfo.isUIComponent // 标记是否是 UI 组件
+      importPath: sourceInfo.importPath,
+      isUIComponent: sourceInfo.isUIComponent
     }))
   );
 
@@ -289,7 +276,7 @@ function addSourceInfoAttribute(node: t.JSXOpeningElement, sourceInfo: SourceMap
 }
 
 /**
- * 添加位置属性
+ * `{prefix}-position` shorthand.
  */
 function addPositionAttribute(node: t.JSXOpeningElement, location: t.SourceLocation, options: Required<DesignModeOptions>) {
   const { attributePrefix } = options;
@@ -307,7 +294,7 @@ function addPositionAttribute(node: t.JSXOpeningElement, location: t.SourceLocat
 }
 
 /**
- * 添加元素ID属性
+ * `{prefix}-element-id`.
  */
 function addElementIdAttribute(node: t.JSXOpeningElement, sourceInfo: SourceMappingInfo, options: Required<DesignModeOptions>) {
   const { attributePrefix } = options;
@@ -325,7 +312,7 @@ function addElementIdAttribute(node: t.JSXOpeningElement, sourceInfo: SourceMapp
 }
 
 /**
- * 添加单独的属性以便于查询
+ * Legacy: one attribute per field (debug / queries).
  */
 function addIndividualAttributes(node: t.JSXOpeningElement, sourceInfo: SourceMappingInfo, options: Required<DesignModeOptions>) {
   const { attributePrefix } = options;
@@ -344,18 +331,16 @@ function addIndividualAttributes(node: t.JSXOpeningElement, sourceInfo: SourceMa
     ));
   };
 
-  // 添加所有单独的属性，便于查询和调试
   addAttr(`${attributePrefix}-file`, sourceInfo.fileName);
   addAttr(`${attributePrefix}-line`, sourceInfo.lineNumber);
   addAttr(`${attributePrefix}-column`, sourceInfo.columnNumber);
   addAttr(`${attributePrefix}-component`, sourceInfo.componentName);
   addAttr(`${attributePrefix}-function`, sourceInfo.functionName);
-  addAttr(`${attributePrefix}-import`, sourceInfo.importPath); // 添加导入路径
+  addAttr(`${attributePrefix}-import`, sourceInfo.importPath);
 }
 
 /**
- * Check if the JSX element contains only static content
- * 严格检查：只能包含纯文本节点（JSXText），不能包含任何其他元素标签或表达式容器
+ * True only when children are exclusively JSXText (no expr containers, nested tags, etc.).
  */
 function isStaticContent(path: NodePath): boolean {
   const { node } = path;
@@ -363,42 +348,26 @@ function isStaticContent(path: NodePath): boolean {
 
   if (!t.isJSXElement(element)) return false;
 
-  // 如果没有子节点，不是静态内容（空元素）
   if (element.children.length === 0) return false;
 
-  // 严格检查：只能包含纯文本节点（JSXText）
-  // 不允许表达式容器、嵌套元素、注释等任何其他类型的节点
   return element.children.every(child => {
-    // 只允许纯文本节点
     if (t.isJSXText(child)) {
-      // 检查文本内容是否为空（只包含空白字符）
-      // 如果文本只包含空白字符，仍然认为是有效的文本节点
       return true;
     }
 
-    // 禁止所有其他类型的节点：
-    // - JSXExpressionContainer（表达式容器，即使是字面量也不允许）
-    // - JSXElement（嵌套元素）
-    // - JSXFragment（Fragment）
-    // - JSXSpreadChild（展开子元素）
-    // - 其他任何类型的节点
     return false;
   });
 }
 
 /**
- * Add static-content attribute (使用配置的前缀)
- * 只有在元素确实只包含纯文本节点时才会添加此属性
- * 严格验证：确保元素只包含 JSXText 节点，不包含任何其他元素标签或表达式容器
+ * `{prefix}-static-content="true"` when children are pure JSXText.
  */
 function addStaticContentAttribute(node: t.JSXOpeningElement, path: NodePath, options: Required<DesignModeOptions>) {
   const { attributePrefix } = options;
   const attributeName = `${attributePrefix}-static-content`;
 
-  // 双重验证：再次检查元素是否真的只包含纯文本节点
-  // 即使调用前已经检查过，这里也再次验证以确保安全
   if (!isStaticContent(path)) {
-    return; // 如果不是纯静态文本，不添加属性
+    return;
   }
 
   // Check if attribute already exists
@@ -415,65 +384,47 @@ function addStaticContentAttribute(node: t.JSXOpeningElement, path: NodePath, op
 }
 
 /**
- * Check if the className attribute is static (pure string literal)
- * className 是静态的条件：
- * 1. className 属性值是字符串字面量（如 className="text-lg"）
- * 2. 或者 className 属性不存在（也认为是可编辑的）
- * 
- * className 不是静态的条件（包含变量/表达式）：
- * 1. className={someVariable}
- * 2. className={`template ${variable}`}
- * 3. className={condition ? 'a' : 'b'}
- * 4. className={cn('base', variable)}
+ * Static className: absent, string literal, or expr with only static string/template without expressions.
+ * Dynamic: variables, cn(), conditional expr, template with ${}, etc.
  */
 function isStaticClassName(node: t.JSXOpeningElement): boolean {
-  // 查找 className 属性
   const classNameAttr = node.attributes.find(attr =>
     t.isJSXAttribute(attr) &&
     t.isJSXIdentifier(attr.name) &&
     attr.name.name === 'className'
   ) as t.JSXAttribute | undefined;
 
-  // 如果没有 className 属性，认为是静态的（可以添加新的 className）
   if (!classNameAttr) {
     return true;
   }
 
   const value = classNameAttr.value;
 
-  // 如果值是字符串字面量，是静态的
   if (t.isStringLiteral(value)) {
     return true;
   }
 
-  // 如果值是表达式容器
   if (t.isJSXExpressionContainer(value)) {
     const expression = value.expression;
 
-    // 字符串字面量也可以写在表达式容器中：className={"text-lg"}
     if (t.isStringLiteral(expression)) {
       return true;
     }
 
-    // 模板字面量不包含任何表达式时也是静态的：className={`text-lg font-bold`}
     if (t.isTemplateLiteral(expression)) {
-      // 检查模板字面量是否只有静态部分（没有 ${} 表达式）
       if (expression.expressions.length === 0) {
         return true;
       }
     }
 
-    // 其他所有情况都认为是动态的（包含变量）
     return false;
   }
 
-  // 其他情况（如 null, undefined 等）认为是静态的
   return true;
 }
 
 /**
- * Add static-class attribute (使用配置的前缀)
- * 只有在 className 是纯静态字符串时才会添加此属性
+ * `{prefix}-static-class="true"` when className is static per `isStaticClassName`.
  */
 function addStaticClassAttribute(node: t.JSXOpeningElement, options: Required<DesignModeOptions>) {
   const { attributePrefix } = options;

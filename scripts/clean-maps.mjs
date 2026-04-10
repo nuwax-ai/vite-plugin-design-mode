@@ -10,7 +10,7 @@ const root = dirname(__dirname);
 const distDir = join(root, 'dist');
 
 /**
- * 递归删除所有 .map 文件
+ * Recursively remove all `.map` files.
  */
 async function removeMapFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true });

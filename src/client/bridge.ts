@@ -15,8 +15,7 @@ import {
 } from '../types/messages';
 
 /**
- * 增强的桥接通信层
- * 支持Promise-based请求-响应、消息验证、错误处理等功能
+ * postMessage bridge: optional request/response, validation hooks, heartbeats.
  */
 export class EnhancedBridge implements BridgeInterface {
   private listeners: Map<string, Set<Function>> = new Map();
@@ -48,26 +47,20 @@ export class EnhancedBridge implements BridgeInterface {
     this.initializeConnectionCheck();
   }
 
-  /**
-   * 初始化消息处理
-   */
+  /** Listen for `message` and mark connected after a short delay (iframe vs top). */
   private initializeMessageHandling() {
     if (typeof window === 'undefined') return;
 
     window.addEventListener('message', this.handleMessage.bind(this));
-    
-    // 在iframe环境中，延迟标记为已连接
-    // 给父窗口时间准备接收消息
+
     if (this.isIframeEnvironment()) {
       setTimeout(() => {
         this._isConnected = true;
         this.log('Bridge initialized and connected (iframe mode)');
-        
-        // 发送就绪消息到父窗口
+
         this.sendReadyMessage();
       }, 200);
     } else {
-      // 在主窗口中，直接标记为已连接
       setTimeout(() => {
         this._isConnected = true;
         this.log('Bridge initialized and connected (main window mode)');
@@ -75,9 +68,7 @@ export class EnhancedBridge implements BridgeInterface {
     }
   }
 
-  /**
-   * 发送就绪消息
-   */
+  /** Notify parent that the child iframe bridge is ready. */
   private sendReadyMessage() {
     try {
       const readyMessage = {
@@ -97,12 +88,11 @@ export class EnhancedBridge implements BridgeInterface {
   }
 
   /**
-   * 初始化心跳机制
+   * Periodic HEARTBEAT posts when running inside an iframe.
    */
   private initializeHeartbeat() {
     if (typeof window === 'undefined') return;
 
-    // 如果我们在iframe中，定期发送心跳
     if (this.isIframeEnvironment()) {
       this.heartbeatTimer = setInterval(() => {
         this.sendHeartbeat();
@@ -110,9 +100,7 @@ export class EnhancedBridge implements BridgeInterface {
     }
   }
 
-  /**
-   * 初始化连接检查
-   */
+  /** Periodically infer disconnect from stale heartbeats. */
   private initializeConnectionCheck() {
     if (typeof window === 'undefined') return;
 
@@ -121,16 +109,12 @@ export class EnhancedBridge implements BridgeInterface {
     }, this.config.heartbeatInterval * 2);
   }
 
-  /**
-   * 检查当前是否为iframe环境
-   */
+  /** True when `window.self !== window.top`. */
   private isIframeEnvironment(): boolean {
     return typeof window !== 'undefined' && window.self !== window.top;
   }
 
-  /**
-   * 获取当前环境信息
-   */
+  /** Snapshot for diagnostics / health. */
   public getEnvironmentInfo(): {
     isIframe: boolean;
     isConnected: boolean;
@@ -157,9 +141,7 @@ export class EnhancedBridge implements BridgeInterface {
     };
   }
 
-  /**
-   * 诊断Bridge状态
-   */
+  /** Log bridge state to the console (dev aid). */
   public diagnose(): void {
     const env = this.getEnvironmentInfo();
     
@@ -172,20 +154,15 @@ export class EnhancedBridge implements BridgeInterface {
     console.groupEnd();
   }
 
-  /**
-   * 获取目标窗口
-   */
+  /** Parent when iframe; `window` when top-level. */
   private getTargetWindow(): Window {
     return this.isIframeEnvironment() ? window.parent : window;
   }
 
-  /**
-   * 消息处理器
-   */
+  /** Route incoming postMessage payloads. */
   private handleMessage(event: MessageEvent) {
-    // 跳过跨域消息（可选的安全措施）
+    // Optional origin filter (disabled by default):
     // if (event.origin !== window.location.origin && window.location.origin !== 'null') {
-    //   // 允许file://和data://协议的本地文件
     //   if (!event.origin.startsWith('http') && !event.origin.startsWith('https')) {
     //     this.log('Received message from different origin, allowing:', event.origin);
     //   } else {
@@ -196,32 +173,30 @@ export class EnhancedBridge implements BridgeInterface {
 
     const message = event.data;
     
-    // 跳过无效消息
+    // Drop malformed payloads
     if (!this.isValidMessage(message)) {
       this.log('Invalid message received:', message);
       return;
     }
 
-    // 处理桥接就绪消息
+    // Child handshake
     if (message.type === 'BRIDGE_READY') {
       this.log('Received ready message from child');
       this._isConnected = true;
       return;
     }
 
-    // 处理请求响应
+    // Completes a pending sendWithResponse
     if (this.isResponseMessage(message)) {
       this.handleResponseMessage(message);
       return;
     }
 
-    // 处理普通消息
+    // Fan-out to on(type) handlers
     this.dispatchMessage(message);
   }
 
-  /**
-   * 处理响应消息
-   */
+  /** Resolve or reject pendingRequests entry. */
   private handleResponseMessage(message: RequestResponseMessage) {
     const { requestId } = message;
     
@@ -231,18 +206,14 @@ export class EnhancedBridge implements BridgeInterface {
       this.pendingRequests.delete(requestId);
 
       if (message.type === 'ACKNOWLEDGEMENT') {
-        // 确认消息，不需要响应
         request.resolve({ success: true, acknowledged: true });
       } else {
-        // 完整响应消息
         request.resolve(message);
       }
     }
   }
 
-  /**
-   * 消息验证
-   */
+  /** Shape check before dispatch. */
   private isValidMessage(message: any): message is DesignModeMessage {
     return (
       message &&
@@ -251,9 +222,7 @@ export class EnhancedBridge implements BridgeInterface {
     );
   }
 
-  /**
-   * 检查是否为支持的的消息类型
-   */
+  /** Known DesignModeMessage union tags. */
   private isSupportedMessageType(type: string): boolean {
     const supportedTypes = [
       // Iframe to Parent
@@ -267,9 +236,7 @@ export class EnhancedBridge implements BridgeInterface {
     return supportedTypes.includes(type);
   }
 
-  /**
-   * 检查是否为响应消息
-   */
+  /** ACK or carries requestId. */
   private isResponseMessage(message: any): message is RequestResponseMessage {
     return message && 
       (message.type === 'ACKNOWLEDGEMENT' || 
@@ -278,25 +245,20 @@ export class EnhancedBridge implements BridgeInterface {
   }
 
   /**
-   * 发送消息
+   * Fire-and-forget postMessage (may no-op if not connected).
    */
   public async send<T extends DesignModeMessage>(message: T): Promise<void> {
-    // 更宽松的连接检查
     if (!this._isConnected && this.isIframeEnvironment()) {
-      // 在iframe环境中，如果没有连接，尝试重新连接
       this.log('Bridge not connected, attempting to reconnect...');
-      
-      // 设置一个短暂的超时来等待连接
+
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       if (!this._isConnected) {
         console.warn('[EnhancedBridge] Bridge still not connected, message will be queued');
-        // 不抛出错误，而是记录警告并返回
         return;
       }
     }
 
-    // 在主窗口中，如果没有目标iframe，发送可能会失败但不应该抛出错误
     if (!this._isConnected && !this.isIframeEnvironment()) {
       this.log('Running in main window, bridge connection not applicable');
       return;
@@ -307,26 +269,22 @@ export class EnhancedBridge implements BridgeInterface {
     try {
       this.log('Sending message:', enhancedMessage);
       
-      // 发送消息到目标窗口
       this.getTargetWindow().postMessage(enhancedMessage, '*');
-      
-      // 发送确认消息（不需要等待响应）
+
       if (this.isIframeEnvironment() && enhancedMessage.requestId) {
         this.sendAcknowledgement(enhancedMessage.requestId);
       }
     } catch (error) {
       this.log('Error sending message:', error);
       
-      // 在开发环境中抛出错误，生产环境中只记录
+      // Dev: surface send failures
       if (process.env.NODE_ENV === 'development') {
         throw error;
       }
     }
   }
 
-  /**
-   * 发送消息并等待响应
-   */
+  /** RPC-style: wait until matching response or timeout. */
   public async sendWithResponse<T extends DesignModeMessage, R extends DesignModeMessage>(
     message: T,
     responseType: R['type']
@@ -339,13 +297,13 @@ export class EnhancedBridge implements BridgeInterface {
     const requestId = enhancedMessage.requestId!;
 
     return new Promise((resolve, reject) => {
-      // 设置超时
+      // Timeout
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId);
         reject(new Error(`Request timeout after ${this.config.timeout}ms`));
       }, this.config.timeout);
 
-      // 存储待处理的请求
+      // Pending request map
       this.pendingRequests.set(requestId, {
         resolve,
         reject,
@@ -364,9 +322,7 @@ export class EnhancedBridge implements BridgeInterface {
     });
   }
 
-  /**
-   * 增强消息（添加requestId和时间戳）
-   */
+  /** Ensure requestId + timestamp exist. */
   private enhanceMessage<T extends DesignModeMessage>(message: T): T & { requestId?: string; timestamp: number } {
     const requestId = (message as any).requestId || this.generateRequestId();
     const timestamp = (message as any).timestamp || this.createTimestamp();
@@ -378,28 +334,22 @@ export class EnhancedBridge implements BridgeInterface {
     };
   }
 
-  /**
-   * 生成请求ID
-   */
+  /** Unique id for correlating responses. */
   private generateRequestId(): string {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  /**
-   * 创建时间戳
-   */
+  /** ms since epoch */
   private createTimestamp(): number {
     return Date.now();
   }
 
-  /**
-   * 发送确认消息
-   */
+  /** Best-effort ACK (messageType not wired through yet). */
   private sendAcknowledgement(requestId: string) {
     const acknowledgement: AcknowledgementMessage = {
       type: 'ACKNOWLEDGEMENT',
       payload: {
-        messageType: 'UNKNOWN', // 这里应该传入实际的消息类型
+        messageType: 'UNKNOWN', // TODO: propagate originating type
       },
       requestId,
       timestamp: this.createTimestamp()
@@ -408,9 +358,7 @@ export class EnhancedBridge implements BridgeInterface {
     this.getTargetWindow().postMessage(acknowledgement, '*');
   }
 
-  /**
-   * 发送心跳
-   */
+  /** HEARTBEAT post to parent. */
   private sendHeartbeat() {
     const heartbeat: HeartbeatMessage = {
       type: 'HEARTBEAT',
@@ -424,10 +372,8 @@ export class EnhancedBridge implements BridgeInterface {
     this.lastHeartbeat = Date.now();
   }
 
-  /**
-   * 检查连接状态
-   */
-  private checkConnection() {
+  /** Mark disconnected if no heartbeats for 3× interval. */
+   private checkConnection() {
     const now = Date.now();
     const timeSinceLastHeartbeat = now - this.lastHeartbeat;
     
@@ -435,7 +381,7 @@ export class EnhancedBridge implements BridgeInterface {
       this.log('Connection appears to be lost');
       this._isConnected = false;
       
-      // 尝试重新连接
+      // Optimistic reconnect
       setTimeout(() => {
         this._isConnected = true;
         this.log('Connection restored');
@@ -443,9 +389,7 @@ export class EnhancedBridge implements BridgeInterface {
     }
   }
 
-  /**
-   * 监听消息
-   */
+  /** Subscribe; returns unsubscribe. */
   public on<T extends DesignModeMessage>(type: T['type'], handler: (message: T) => void): () => void {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
@@ -453,22 +397,18 @@ export class EnhancedBridge implements BridgeInterface {
     
     this.listeners.get(type)!.add(handler);
     
-    // 返回取消监听的函数
+    // Unsubscribe
     return () => {
       this.listeners.get(type)?.delete(handler);
     };
   }
 
-  /**
-   * 取消监听
-   */
+  /** Remove one handler for `type`. */
   public off(type: string, handler: Function): void {
     this.listeners.get(type)?.delete(handler);
   }
 
-  /**
-   * 分发消息到处理器
-   */
+  /** Invoke all listeners for message.type */
   private dispatchMessage(message: DesignModeMessage) {
     const handlers = this.listeners.get(message.type);
     if (handlers) {
@@ -482,23 +422,17 @@ export class EnhancedBridge implements BridgeInterface {
     }
   }
 
-  /**
-   * 获取连接状态
-   */
+  /** `_isConnected` flag */
   public isConnected(): boolean {
     return this._isConnected;
   }
 
-  /**
-   * 获取连接状态 (Alias for backward compatibility if needed)
-   */
+  /** Same as `isConnected` (legacy name). */
   public isConnectedToTarget(): boolean {
     return this._isConnected;
   }
 
-  /**
-   * 断开连接
-   */
+  /** Clear timers, reject pendings, remove listener. */
   public disconnect(): void {
     this._isConnected = false;
     
@@ -510,14 +444,14 @@ export class EnhancedBridge implements BridgeInterface {
       clearInterval(this.connectionCheckTimer);
     }
     
-    // 清理待处理的请求
+    // Reject pending RPCs
     this.pendingRequests.forEach(request => {
       clearTimeout(request.timeout);
       request.reject(new Error('Connection disconnected'));
     });
     this.pendingRequests.clear();
     
-    // 清理消息监听器
+    // Remove global listener
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', this.handleMessage.bind(this));
     }
@@ -526,14 +460,12 @@ export class EnhancedBridge implements BridgeInterface {
     this.log('Bridge disconnected');
   }
 
-  /**
-   * 健康检查
-   */
+  /** Summarize connectivity; may issue HEALTH_CHECK RPC in iframe. */
   public async healthCheck(): Promise<{ status: string; details: any }> {
     try {
       const env = this.getEnvironmentInfo();
       
-      // 基本健康检查
+      // Top-level window
       if (!env.isIframe && this._isConnected) {
         return {
           status: 'healthy',
@@ -545,7 +477,7 @@ export class EnhancedBridge implements BridgeInterface {
       }
       
       if (env.isIframe && this._isConnected) {
-        // 在iframe中，尝试发送健康检查请求
+        // Iframe: ping parent
         try {
           const response = await this.sendWithResponse<HealthCheckMessage, HealthCheckResponseMessage>(
             {
@@ -594,9 +526,7 @@ export class EnhancedBridge implements BridgeInterface {
     }
   }
 
-  /**
-   * 调试日志
-   */
+  /** Guarded by config.debug */
   private log(...args: any[]) {
     if (this.config.debug) {
       const timestamp = new Date().toISOString();
@@ -604,17 +534,13 @@ export class EnhancedBridge implements BridgeInterface {
     }
   }
 
-  /**
-   * 销毁实例
-   */
+  /** Alias for disconnect(). */
   public destroy(): void {
     this.disconnect();
   }
 }
 
-/**
- * 桥接工具函数
- */
+/** Small helpers for request ids / timestamps. */
 export const MessageUtils: MessageUtilsInterface = {
   generateRequestId: (): string => {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -645,14 +571,10 @@ export const MessageUtils: MessageUtilsInterface = {
   }
 };
 
-/**
- * 默认桥接实例
- */
+/** Singleton used by the design-mode client bundle. */
 export const bridge = new EnhancedBridge();
 
-/**
- * 消息验证器
- */
+/** Structural validation for a subset of message types. */
 export class MessageValidatorImpl implements MessageValidator {
   validate(message: any): MessageValidationResult {
     const errors: string[] = [];
@@ -670,7 +592,7 @@ export class MessageValidatorImpl implements MessageValidator {
       errors.push('Message timestamp must be a number');
     }
 
-    // 检查特定消息类型的字段
+    // Per-type payload checks
     switch (message.type) {
       case 'ELEMENT_SELECTED':
         if (!message.payload?.elementInfo) {

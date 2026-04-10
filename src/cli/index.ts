@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * CLI 入口文件
- * 处理命令行参数并调用相应的功能
+ * CLI entry: parse argv and dispatch install / uninstall.
  */
 
 import { main as installMain } from './install.js';
@@ -23,32 +22,30 @@ switch (command) {
     console.log(`
 @xagi/vite-plugin-design-mode CLI
 
-用法:
+Usage:
   npx @xagi/vite-plugin-design-mode <command>
   pnpm dlx @xagi/vite-plugin-design-mode <command>
 
-命令:
-  install     在 package.json 和 vite.config 中添加插件配置
-  uninstall   从 package.json 和 vite.config 中移除插件配置
+Commands:
+  install     Add the plugin to package.json and vite.config
+  uninstall   Remove the plugin from package.json and vite.config
 
-说明:
-  - 这些命令只会在配置文件中添加/移除插件配置，不会执行包管理器命令
-  - 配置完成后，请手动运行包管理器命令来安装/卸载依赖
+Notes:
+  - Only edits config files; it does not run your package manager.
+  - After install/uninstall, run install/remove yourself to sync node_modules.
 
-示例:
-  # 安装
+Examples:
   pnpm dlx @xagi/vite-plugin-design-mode install
   npx @xagi/vite-plugin-design-mode install
-  
-  # 卸载
+
   pnpm dlx @xagi/vite-plugin-design-mode uninstall
   npx @xagi/vite-plugin-design-mode uninstall
 
-更多信息请访问: https://www.npmjs.com/package/@xagi/vite-plugin-design-mode
+More info: https://www.npmjs.com/package/@xagi/vite-plugin-design-mode
 `);
     break;
   default:
-    console.error(`✗ 未知命令: ${command}`);
-    console.error('使用 --help 查看可用命令');
+    console.error(`✗ Unknown command: ${command}`);
+    console.error('Run with --help to see available commands.');
     process.exit(1);
 }

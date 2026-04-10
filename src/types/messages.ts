@@ -9,7 +9,7 @@ export interface SourceInfo {
   functionName?: string;
   elementId?: string;
   importPath?: string;
-  isUIComponent?: boolean; // 标记是否是 UI 组件（components/ui 目录下的组件）
+  isUIComponent?: boolean; // Whether this is a UI-kit component (e.g. under components/ui)
 }
 
 export interface ElementInfo {
@@ -18,7 +18,7 @@ export interface ElementInfo {
   textContent: string;
   sourceInfo: SourceInfo;
   isStaticText: boolean;
-  isStaticClass?: boolean; // 标记 className 是否是纯静态字符串（可编辑）
+  isStaticClass?: boolean; // Whether className is a pure static string (editable)
   componentName?: string;
   componentPath?: string;
   props?: Record<string, string>;
@@ -29,7 +29,7 @@ export interface ElementInfo {
   }[];
 }
 
-// 消息验证相关类型
+// Message validation types
 export interface MessageValidationResult {
   isValid: boolean;
   errors?: string[];
@@ -73,7 +73,7 @@ export interface ContentUpdatedMessage {
     sourceInfo: SourceInfo;
     oldValue: string;
     newValue: string;
-    realtime?: boolean; // 标记是否为实时更新
+    realtime?: boolean; // Whether this is a realtime (throttled) update
   };
   requestId?: string;
   timestamp?: number;
@@ -85,7 +85,7 @@ export interface ContentUpdatedCallbackMessage {
     sourceInfo: SourceInfo;
     oldValue: string;
     newValue: string;
-    realtime?: boolean; // 标记是否为实时更新
+    realtime?: boolean; // Whether this is a realtime (throttled) update
   };
   requestId?: string;
   timestamp?: number;
@@ -180,15 +180,15 @@ export interface CopyElementMessage {
       content: string;
       sourceInfo?: SourceInfo;
     };
-    textContent: string; // 用于剪贴板的 JSON 字符串
-    success: boolean; // 是否拷贝成功
-    error?: string; // 如果失败，错误信息
+    textContent: string; // JSON string for clipboard
+    success: boolean; // Whether copy succeeded
+    error?: string; // Error message when copy failed
   };
   requestId?: string;
   timestamp?: number;
 }
 
-// 新增：错误处理消息
+// Error message
 export interface ErrorMessage {
   type: 'ERROR';
   payload: {
@@ -200,7 +200,7 @@ export interface ErrorMessage {
   timestamp?: number;
 }
 
-// 新增：确认消息
+// Acknowledgement message
 export interface AcknowledgementMessage {
   type: 'ACKNOWLEDGEMENT';
   payload: {
@@ -210,7 +210,7 @@ export interface AcknowledgementMessage {
   timestamp?: number;
 }
 
-// 新增：心跳和健康检查消息
+// Heartbeat and health-check messages
 export interface HeartbeatMessage {
   type: 'HEARTBEAT';
   payload?: {
@@ -270,7 +270,7 @@ export type ParentToIframeMessage =
 
 export type DesignModeMessage = IframeToParentMessage | ParentToIframeMessage;
 
-// Promise-based 请求响应类型
+// Promise-based request/response types
 export type RequestMessage = ParentToIframeMessage & {
   requestId: string;
   timestamp: number;
@@ -285,14 +285,14 @@ export type ResponseMessage = IframeToParentMessage & {
 
 export type RequestResponseMessage = RequestMessage | ResponseMessage | AcknowledgementMessage;
 
-// 消息处理器类型
+// Message handler type
 export interface MessageHandler<T extends DesignModeMessage = DesignModeMessage> {
   type: T['type'];
   handler: (message: T) => Promise<any> | any;
   validator?: MessageValidator;
 }
 
-// 配置相关类型
+// Config-related types
 export interface IframeModeConfig {
   enabled: boolean;
   hideUI: boolean;
@@ -313,7 +313,7 @@ export interface BridgeConfig {
   debug: boolean;
 }
 
-// 工具函数类型
+// Message utility helpers
 export interface MessageUtils {
   generateRequestId: () => string;
   createTimestamp: () => number;
@@ -326,7 +326,7 @@ export interface MessageUtils {
   ) => T;
 }
 
-// 桥接器接口
+// Bridge interface
 export interface BridgeInterface {
   send: <T extends DesignModeMessage>(message: T) => Promise<void>;
   sendWithResponse: <T extends DesignModeMessage, R extends DesignModeMessage>(

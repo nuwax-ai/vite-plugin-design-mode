@@ -1,8 +1,6 @@
 import { SourceInfo } from '../../types/messages';
 
-/**
- * 更新操作类型
- */
+/** High-level update kind tracked by `UpdateManager`. */
 export type UpdateOperation =
   | 'style_update'
   | 'content_update'
@@ -10,9 +8,7 @@ export type UpdateOperation =
   | 'class_update'
   | 'batch_update';
 
-/**
- * 更新状态
- */
+/** One in-flight or historical mutation. */
 export interface UpdateState {
   id: string;
   operation: UpdateOperation;
@@ -27,9 +23,7 @@ export interface UpdateState {
   persist?: boolean;
 }
 
-/**
- * 更新结果
- */
+/** Result of persisting / previewing an update. */
 export interface UpdateResult {
   success: boolean;
   element: HTMLElement;
@@ -38,9 +32,7 @@ export interface UpdateResult {
   serverResponse?: any;
 }
 
-/**
- * 批量更新项
- */
+/** One row in a batch POST body. */
 export interface BatchUpdateItem {
   element: HTMLElement;
   type: 'style' | 'content' | 'attribute';
@@ -50,9 +42,7 @@ export interface BatchUpdateItem {
   selector?: string;
 }
 
-/**
- * 更新管理器配置
- */
+/** `UpdateManager` runtime options. */
 export interface UpdateManagerConfig {
   enableDirectEdit: boolean;
   enableBatching: boolean;

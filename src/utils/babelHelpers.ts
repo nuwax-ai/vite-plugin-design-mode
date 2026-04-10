@@ -1,14 +1,14 @@
 import * as t from '@babel/types';
 
 /**
- * 检查是否为React组件名称
+ * Whether the name looks like a React component (PascalCase).
  */
 export function isReactComponentName(name: string): boolean {
   return /^[A-Z]/.test(name);
 }
 
 /**
- * 获取JSX元素的基础名称
+ * Base name of a JSX element (identifier or member property).
  */
 export function getJSXElementBaseName(name: any): string {
   if (t.isJSXIdentifier(name)) {
@@ -20,7 +20,7 @@ export function getJSXElementBaseName(name: any): string {
 }
 
 /**
- * 检查JSX属性是否为字符串字面量
+ * Whether a JSX attribute is a string literal for the given name.
  */
 export function isStringLiteralAttribute(
   attr: t.JSXAttribute,
@@ -34,7 +34,7 @@ export function isStringLiteralAttribute(
 }
 
 /**
- * 提取字符串属性值
+ * Read a string literal attribute value from a JSX opening element.
  */
 export function extractStringAttributeValue(
   node: t.JSXOpeningElement,
@@ -52,7 +52,7 @@ export function extractStringAttributeValue(
 }
 
 /**
- * 创建源码位置字符串
+ * Serialize file:line:column into a single string.
  */
 export function createSourcePositionString(
   fileName: string,
@@ -63,7 +63,7 @@ export function createSourcePositionString(
 }
 
 /**
- * 解析源码位置字符串
+ * Parse a file:line:column string back into parts.
  */
 export function parseSourcePositionString(position: string): {
   fileName: string;

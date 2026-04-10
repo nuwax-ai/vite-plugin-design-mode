@@ -5,8 +5,7 @@ import { AttributeNames, isSourceMappingAttribute } from './utils/attributeNames
 import { isPureStaticText } from './utils/elementUtils';
 
 /**
- * 元素选择管理器
- * 负责监听元素点击、提取信息、发送选中事件
+ * Click/hover selection for mapped elements; emits to listeners / iframe.
  */
 export class SelectionManager {
   private selectedElement: HTMLElement | null = null;
@@ -46,13 +45,9 @@ export class SelectionManager {
     this.initializeEventListeners();
   }
 
-  /**
-   * 初始化事件监听器
-   */
   private initializeEventListeners() {
     if (!this.config.enableSelection) return;
 
-    // 使用事件委托来处理动态元素
     this.container.addEventListener('click', this.handleClick.bind(this), true);
     this.container.addEventListener('mousedown', this.handleMouseDown.bind(this), true);
     this.container.addEventListener('mouseup', this.handleMouseUp.bind(this), true);
@@ -62,7 +57,7 @@ export class SelectionManager {
       this.container.addEventListener('mouseleave', this.handleMouseLeave.bind(this), true);
     }
 
-    // 键盘事件处理（仅在 enableSelection 为 true 时注册）
+    // Keyboard shortcuts when selection enabled
     if (this.config.enableSelection) {
       document.addEventListener('keydown', this.handleKeyDown.bind(this));
       document.addEventListener('keyup', this.handleKeyUp.bind(this));
@@ -70,7 +65,7 @@ export class SelectionManager {
   }
 
   /**
-   * 处理鼠标点击事件
+   * Click handler
    */
   private handleClick(event: MouseEvent) {
     if (!this.config.enableSelection) return;
@@ -84,7 +79,7 @@ export class SelectionManager {
     const target = event.target as HTMLElement;
     if (!this.isValidElement(target)) return;
 
-    // 应用选择延迟（如果配置了）
+    // Optional selectionDelay
     if (this.config.selectionDelay > 0) {
       setTimeout(() => {
         this.selectElement(target);
@@ -95,7 +90,7 @@ export class SelectionManager {
   }
 
   /**
-   * 处理鼠标按下事件
+   * mousedown
    */
   private handleMouseDown(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -107,7 +102,7 @@ export class SelectionManager {
   }
 
   /**
-   * 处理鼠标释放事件
+   * mouseup
    */
   private handleMouseUp(event: MouseEvent) {
     if (!this.isSelecting) return;
@@ -115,7 +110,7 @@ export class SelectionManager {
     const target = event.target as HTMLElement;
     const duration = Date.now() - this.selectionStartTime;
 
-    // 如果是长时间按住（超过500ms），则取消选择
+    // Long-press (>500ms) suppresses click selection
     if (duration > 500) {
       this.preventNextClick = true;
     }
@@ -124,7 +119,7 @@ export class SelectionManager {
   }
 
   /**
-   * 处理鼠标进入事件
+   * mouseenter
    */
   private handleMouseEnter(event: MouseEvent) {
     if (!this.config.enableHover) return;
@@ -137,7 +132,7 @@ export class SelectionManager {
   }
 
   /**
-   * 处理鼠标离开事件
+   * mouseleave
    */
   private handleMouseLeave(event: MouseEvent) {
     if (!this.config.enableHover) return;
@@ -150,21 +145,21 @@ export class SelectionManager {
   }
 
   /**
-   * 处理键盘按键事件
+   * keydown
    */
   private handleKeyDown(event: KeyboardEvent) {
-    // ESC键取消选择
+    // Esc clears selection
     if (event.key === 'Escape') {
       this.clearSelection();
     }
 
-    // Ctrl/Cmd + A 全选
+    // Ctrl/Cmd+A: select first match
     if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
       event.preventDefault();
       this.selectAll();
     }
 
-    // Ctrl/Cmd + D 取消选择
+    // Ctrl/Cmd+D: clear
     if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
       event.preventDefault();
       this.clearSelection();
@@ -172,15 +167,14 @@ export class SelectionManager {
   }
 
   /**
-   * 处理键盘释放事件
+   * keyup
    */
   private handleKeyUp(event: KeyboardEvent) {
-    // 释放按键时的处理
+    // noop
   }
 
   /**
-   * 检查元素是否有效可选择
-   * 只有具有静态文本或静态 className 的元素才能被选中
+   * Whether element may be selected (mapped + static-content or static-class)
    */
   private isValidElement(element: HTMLElement): boolean {
     if (!element || !element.tagName) return false;
@@ -188,14 +182,14 @@ export class SelectionManager {
     // Exclude context menu
     if (element.closest(`[${AttributeNames.contextMenu}="true"]`)) return false;
 
-    // 检查是否在排除列表中
+    // Exclusion list
     for (const selector of this.config.excludeSelectors) {
       if (element.matches(selector) || element.closest(selector)) {
         return false;
       }
     }
 
-    // 如果设置了只包含元素类型限制
+    // Optional tag whitelist
     if (this.config.includeOnlyElements) {
       const validElements = ['DIV', 'SPAN', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BUTTON', 'A'];
       if (!validElements.includes(element.tagName)) {
@@ -203,13 +197,12 @@ export class SelectionManager {
       }
     }
 
-    // 检查元素是否有源码映射信息
+    // Must have -info JSON
     if (!element.hasAttribute(AttributeNames.info)) {
       return false;
     }
 
-    // 只有具有静态文本或静态 className 的元素才能被选中
-    // 如果元素既没有 static-content 也没有 static-class 属性，则不可选中
+    // Need static-content or static-class
     const hasStaticContent = element.hasAttribute(AttributeNames.staticContent);
     const hasStaticClass = element.hasAttribute(AttributeNames.staticClass);
 
@@ -217,7 +210,7 @@ export class SelectionManager {
     console.log('hasStaticClass', element, hasStaticClass);
 
     if (!hasStaticContent && !hasStaticClass) {
-      // 该元素的内容和样式都是动态的，不可选中
+      // Dynamic content/style — skip
       return false;
     }
 
@@ -225,27 +218,27 @@ export class SelectionManager {
   }
 
   /**
-   * 选择元素
+   * Apply selection highlight
    */
   private selectElement(element: HTMLElement) {
     if (this.selectedElement === element) return;
 
-    // 清除之前的选择高亮
+    // Clear previous outline
     if (this.selectedElement) {
       this.clearElementHighlighting(this.selectedElement);
     }
 
     this.selectedElement = element;
 
-    // 添加新的选择高亮
+    // Highlight new node
     this.highlightElement(element);
 
-    // 通知监听器
+    // Notify subscribers
     this.selectionListeners.forEach(listener => listener(element));
   }
 
   /**
-   * 清除选择
+   * clearSelection
    */
   public clearSelection() {
     if (this.selectedElement) {
@@ -256,10 +249,10 @@ export class SelectionManager {
   }
 
   /**
-   * 高亮显示元素
+   * highlightElement
    */
   private highlightElement(element: HTMLElement) {
-    // 移除之前的高亮样式
+    // Restore prior inline styles if any
     const existingHighlight = element.getAttribute('data-selection-highlight');
     if (existingHighlight) {
       const existingStyles = JSON.parse(existingHighlight);
@@ -268,7 +261,7 @@ export class SelectionManager {
       });
     }
 
-    // 保存原始样式
+    // Snapshot pre-highlight
     const originalStyles = {
       outline: element.style.outline,
       boxShadow: element.style.boxShadow,
@@ -276,18 +269,18 @@ export class SelectionManager {
       cursor: element.style.cursor
     };
 
-    // 设置高亮样式
+    // Selection chrome
     element.style.outline = '2px solid #007acc';
     element.style.boxShadow = '0 0 0 2px rgba(0, 122, 204, 0.3)';
     element.style.backgroundColor = 'rgba(0, 122, 204, 0.1)';
     element.style.cursor = 'pointer';
 
-    // 保存高亮样式到元素上
+    // Persist snapshot on data-selection-highlight
     element.setAttribute('data-selection-highlight', JSON.stringify(originalStyles));
   }
 
   /**
-   * 清除元素高亮
+   * clearElementHighlighting
    */
   private clearElementHighlighting(element: HTMLElement) {
     const highlightData = element.getAttribute('data-selection-highlight');
@@ -305,28 +298,28 @@ export class SelectionManager {
   }
 
   /**
-   * 处理悬停元素变化
+   * onHoverElement
    */
   private onHoverElement(element: HTMLElement | null) {
-    // 可以在这里添加悬停效果的逻辑
+    // Hook for hover UX
   }
 
   /**
-   * 全选功能
+   * selectAll (first candidate only)
    */
   private selectAll() {
     const selectableElements = Array.from(
       this.container.querySelectorAll('*')
     ).filter(el => this.isValidElement(el as HTMLElement));
 
-    // 暂时只选择第一个元素，后续可以扩展为多选模式
+    // Future: multi-select
     if (selectableElements.length > 0) {
       this.selectElement(selectableElements[0] as HTMLElement);
     }
   }
 
   /**
-   * 添加选择监听器
+   * addSelectionListener
    */
   public addSelectionListener(listener: (element: HTMLElement | null) => void) {
     this.selectionListeners.add(listener);
@@ -334,24 +327,24 @@ export class SelectionManager {
   }
 
   /**
-   * 获取当前选中的元素
+   * getSelectedElement
    */
   public getSelectedElement(): HTMLElement | null {
     return this.selectedElement;
   }
 
   /**
-   * 获取悬停元素
+   * getHoverElement
    */
   public getHoverElement(): HTMLElement | null {
     return this.hoverElement;
   }
 
   /**
-   * 提取元素的源码信息
+   * extractSourceInfo
    */
   private extractSourceInfo(element: HTMLElement): SourceInfo | null {
-    // 优先尝试从 info JSON 属性获取
+    // Prefer -info JSON
     const sourceInfoStr = element.getAttribute(AttributeNames.info);
     if (sourceInfoStr) {
       try {
@@ -369,7 +362,7 @@ export class SelectionManager {
       }
     }
 
-    // 备用方案：从个别属性获取
+    // Legacy per-field attrs
     const fileName = element.getAttribute(AttributeNames.file);
     const lineStr = element.getAttribute(AttributeNames.line);
     const columnStr = element.getAttribute(AttributeNames.column);
@@ -390,21 +383,19 @@ export class SelectionManager {
   }
 
   /**
-   * 查找组件根元素
-   * 如果当前元素属于某个组件库组件（如 src/components/ui），则向上查找该组件的根元素
+   * Walk up for library component root
    */
   private findComponentRoot(element: HTMLElement): HTMLElement {
     const sourceInfo = this.extractSourceInfo(element);
     if (!sourceInfo || !sourceInfo.fileName) return element;
 
-    // 检查是否是组件库文件
+    // Heuristic: components/ui or common
     const isLibraryComponent = sourceInfo.fileName.includes('/components/ui/') ||
-      sourceInfo.fileName.includes('/components/common/'); // 可配置
+      sourceInfo.fileName.includes('/components/common/');
 
     if (!isLibraryComponent) return element;
 
-    // 向上查找，直到找到一个元素，其文件路径与当前元素不同，或者没有源码信息
-    // 该元素的子元素（即当前遍历到的元素）就是组件的根
+    // Stop at file boundary
     let current = element;
     let componentRoot = element;
 
@@ -412,7 +403,7 @@ export class SelectionManager {
       const parent = current.parentElement;
       const parentSourceInfo = this.extractSourceInfo(parent);
 
-      // 如果父元素没有源码信息，或者父元素在不同的文件中，那么当前元素就是组件根
+      // Boundary: different file or no mapping
       if (!parentSourceInfo || parentSourceInfo.fileName !== sourceInfo.fileName) {
         componentRoot = current;
         break;
@@ -425,12 +416,12 @@ export class SelectionManager {
   }
 
   /**
-   * 提取元素的完整信息
+   * extractElementInfo
    */
   public extractElementInfo(element: HTMLElement): ElementInfo | null {
     if (!element) return null;
 
-    // 优先选择组件根元素
+    // Prefer library root
     const targetElement = this.findComponentRoot(element);
     const sourceInfo = this.extractSourceInfo(targetElement);
 
@@ -439,19 +430,19 @@ export class SelectionManager {
       return null;
     }
 
-    // 计算元素的边界框信息
+    // Layout (rect unused below — kept for future)
     const rect = targetElement.getBoundingClientRect();
     const computedStyle = window.getComputedStyle(targetElement);
 
-    // 判断是否为静态文本
+    // Static text flags
     const hasStaticContentAttr = targetElement.hasAttribute(AttributeNames.staticContent);
     const isActuallyPureText = isPureStaticText(targetElement);
     const isStaticText = hasStaticContentAttr && isActuallyPureText;
 
-    // 判断是否为静态 className
+
     const isStaticClass = targetElement.hasAttribute(AttributeNames.staticClass);
 
-    // 获取文本内容
+    // Text snapshot
     let textContent = '';
     if (isStaticText) {
       textContent = this.getElementTextContent(targetElement);
@@ -459,7 +450,7 @@ export class SelectionManager {
       textContent = targetElement.innerText || targetElement.textContent || '';
     }
 
-    // 提取组件层级
+    // Ancestor chain with mappings
     const hierarchy: { tagName: string; componentName?: string; fileName?: string }[] = [];
     let current: HTMLElement | null = targetElement;
     while (current && current !== document.body) {
@@ -474,7 +465,7 @@ export class SelectionManager {
       current = current.parentElement;
     }
 
-    // 提取属性（作为 props 的近似）
+    // DOM attrs as pseudo-props
     const props = this.getElementAttributes(targetElement);
 
     return {
@@ -483,7 +474,7 @@ export class SelectionManager {
       textContent: textContent,
       sourceInfo,
       isStaticText: isStaticText || false,
-      isStaticClass: isStaticClass, // 标记 className 是否可编辑
+      isStaticClass: isStaticClass,
       componentName: sourceInfo.componentName,
       componentPath: sourceInfo.fileName,
       props,
@@ -492,13 +483,13 @@ export class SelectionManager {
   }
 
   /**
-   * 获取元素的文本内容（递归获取所有文本）
+   * getElementTextContent
    */
   private getElementTextContent(element: HTMLElement): string {
-    // 优先使用 textContent，它包含所有文本
+
     let textContent = element.textContent || '';
 
-    // 如果文本内容太长，截取前100个字符
+    // Truncate preview
     if (textContent.length > 100) {
       textContent = textContent.substring(0, 100) + '...';
     }
@@ -507,14 +498,14 @@ export class SelectionManager {
   }
 
   /**
-   * 获取元素的所有属性
+   * getElementAttributes
    */
   private getElementAttributes(element: HTMLElement): Record<string, string> {
     const attributes: Record<string, string> = {};
     const elementAttributes = Array.from(element.attributes);
 
     elementAttributes.forEach(attr => {
-      // 过滤掉源码映射属性和选择相关的属性
+      // Strip mapping + selection attrs
       if (!isSourceMappingAttribute(attr.name) &&
         !attr.name.startsWith('data-selection-')) {
         attributes[attr.name] = attr.value;
@@ -525,7 +516,7 @@ export class SelectionManager {
   }
 
   /**
-   * 获取元素的DOM路径
+   * getElementDomPath
    */
   private getElementDomPath(element: HTMLElement): string {
     const path: string[] = [];
@@ -541,11 +532,11 @@ export class SelectionManager {
       }
 
       if (current.className) {
-        const classes = Array.from(current.classList).slice(0, 3); // 只取前3个类名
+        const classes = Array.from(current.classList).slice(0, 3);
         selector += `.${classes.join('.')}`;
       }
 
-      // 计算兄弟元素索引
+      // nth-of-type disambiguation
       const siblings = Array.from(current.parentNode?.children || []);
       const sameTagSiblings = siblings.filter(sibling =>
         sibling.tagName === current!.tagName
@@ -564,13 +555,13 @@ export class SelectionManager {
   }
 
   /**
-   * 销毁管理器
+   * destroy
    */
   public destroy() {
-    // 清除选择
+
     this.clearSelection();
 
-    // 移除事件监听器
+
     this.container.removeEventListener('click', this.handleClick.bind(this), true);
     this.container.removeEventListener('mousedown', this.handleMouseDown.bind(this), true);
     this.container.removeEventListener('mouseup', this.handleMouseUp.bind(this), true);
@@ -579,7 +570,7 @@ export class SelectionManager {
     document.removeEventListener('keydown', this.handleKeyDown.bind(this));
     document.removeEventListener('keyup', this.handleKeyUp.bind(this));
 
-    // 清除监听器
+
     this.selectionListeners.clear();
   }
 }
@@ -598,7 +589,7 @@ export const useSelectionManager = (config?: {
   const { selectElement, config: designModeConfig } = useDesignMode();
 
   useEffect(() => {
-    const container = document.body; // 或者可以传入特定的容器
+    const container = document.body;
     selectionManagerRef.current = new SelectionManager(container, {
       enableSelection: designModeConfig.iframeMode?.enableSelection ?? true,
       enableHover: true,
@@ -611,10 +602,10 @@ export const useSelectionManager = (config?: {
       ...config
     });
 
-    // 监听选择变化并调用DesignModeContext的selectElement
+    // Bridge to React context
     const unsubscribe = selectionManagerRef.current.addSelectionListener((element) => {
       if (element && designModeConfig.iframeMode?.enabled) {
-        // 提取元素信息并发送到父窗口
+        // extractElementInfo + selectElement
         const elementInfo = selectionManagerRef.current?.extractElementInfo(element);
         if (elementInfo) {
           selectElement(element);

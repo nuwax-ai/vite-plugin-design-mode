@@ -17,16 +17,12 @@ export const DesignModeBridge: React.FC = () => {
   const { selectedElement, modifyElementClass, updateElementContent } =
     useDesignMode();
 
-  /**
-   * 检查Bridge是否准备好
-   */
+  /** True in iframe with an active bridge target. */
   const isBridgeReady = useCallback(() => {
-    // 检查是否在iframe环境中
     if (window.self === window.top) {
       return false;
     }
 
-    // 检查Bridge是否已连接
     if (!bridge.isConnectedToTarget()) {
       return false;
     }
@@ -34,9 +30,6 @@ export const DesignModeBridge: React.FC = () => {
     return true;
   }, []);
 
-  /**
-   * 安全的发送消息函数
-   */
   const safeSend = useCallback(
     async (type: string, payload: any) => {
       if (!isBridgeReady()) {
@@ -44,7 +37,6 @@ export const DesignModeBridge: React.FC = () => {
       }
 
       try {
-        // 使用新的消息格式
         const message = {
           type,
           payload,
@@ -59,28 +51,19 @@ export const DesignModeBridge: React.FC = () => {
     [isBridgeReady]
   );
 
-  /**
-   * 同步选择到主机
-   */
+  /** Push ELEMENT_SELECTED / DESELECTED to parent after a short delay (bridge init). */
   useEffect(() => {
-    // 延迟执行，确保Bridge有时间初始化
     const timer = setTimeout(() => {
       if (selectedElement) {
-        // 使用 resolveSourceInfo 来获取正确的源位置
-        // 对于pass-through组件，会向上查找使用位置
         const sourceInfo = resolveSourceInfo(selectedElement);
         // console.log('[DesignModeBridge] resolveSourceInfo', window.location.href, sourceInfo);
 
-        // 确保我们有有效的元素数据
-        // 判断是否为静态文本：
-        // 1. 检查元素是否有 static-content 属性
-        // 2. 严格验证元素是否真的只包含纯文本节点（不包含其他元素标签）
+        // Static text: static-content attr + DOM is text-only
         const hasStaticContentAttr = selectedElement.hasAttribute(AttributeNames.staticContent);
         const isActuallyPureText = isPureStaticText(selectedElement);
         const isStaticText = hasStaticContentAttr && isActuallyPureText;
 
-        // 判断是否为静态 className：
-        // 检查元素是否有 static-class 属性（表示 className 是纯静态字符串，可编辑）
+        // Editable class when static-class is present
         const isStaticClass = selectedElement.hasAttribute(AttributeNames.staticClass);
 
         const elementData = {
@@ -96,8 +79,8 @@ export const DesignModeBridge: React.FC = () => {
             lineNumber: 0,
             columnNumber: 0,
           },
-          isStaticText: isStaticText || false, // 默认为 false
-          isStaticClass: isStaticClass, // 标记 className 是否可编辑
+          isStaticText: isStaticText || false,
+          isStaticClass: isStaticClass,
         };
 
         if (
@@ -113,14 +96,12 @@ export const DesignModeBridge: React.FC = () => {
       } else {
         safeSend('ELEMENT_DESELECTED', null);
       }
-    }, 100); // 100ms延迟
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [selectedElement, safeSend]);
 
-  /**
-   * 监听来自主机的命令
-   */
+  /** Parent → iframe: UPDATE_STYLE / UPDATE_CONTENT / TOGGLE */
   useEffect(() => {
     if (!isBridgeReady()) {
       return;
@@ -130,7 +111,7 @@ export const DesignModeBridge: React.FC = () => {
       const payload = message.payload;
 
       if (selectedElement && payload?.sourceInfo && payload?.newClass) {
-        // 验证源信息是否匹配
+        // Require matching file:line:col
         const elementSourceInfo = extractSourceInfo(selectedElement);
 
         if (!elementSourceInfo) {
@@ -161,7 +142,7 @@ export const DesignModeBridge: React.FC = () => {
         payload?.sourceInfo &&
         payload?.newContent !== undefined
       ) {
-        // 验证源信息是否匹配
+        // Require matching file:line:col
         const elementSourceInfo = extractSourceInfo(selectedElement);
 
         if (!elementSourceInfo) {
@@ -184,11 +165,9 @@ export const DesignModeBridge: React.FC = () => {
       }
     });
 
-    // 监听设计模式切换
     const unsubscribeToggle = bridge.on<ToggleDesignModeMessage>(
       'TOGGLE_DESIGN_MODE',
       (message) => {
-        // 这里可以添加设计模式切换逻辑
       }
     );
 
@@ -204,9 +183,7 @@ export const DesignModeBridge: React.FC = () => {
     isBridgeReady,
   ]);
 
-  /**
-   * Bridge健康检查
-   */
+  /** Periodic bridge.healthCheck in iframe */
   useEffect(() => {
     if (!isBridgeReady()) {
       return;
@@ -221,11 +198,9 @@ export const DesignModeBridge: React.FC = () => {
       }
     };
 
-    // 立即检查一次
     checkBridgeHealth();
 
-    // 定期检查
-    const healthTimer = setInterval(checkBridgeHealth, 30000); // 30秒检查一次
+    const healthTimer = setInterval(checkBridgeHealth, 30000);
 
     return () => clearInterval(healthTimer);
   }, [isBridgeReady]);

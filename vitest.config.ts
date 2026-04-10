@@ -3,13 +3,13 @@ import { resolve } from 'path';
 
 export default defineConfig({
   test: {
-    // 测试环境
+    // Test environment
     environment: 'node',
     
-    // 测试文件匹配模式
+    // Test file glob patterns
     include: ['test/**/*.test.ts', 'test/**/*.spec.ts'],
     
-    // 覆盖率配置
+    // Coverage
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -23,13 +23,13 @@ export default defineConfig({
       ],
     },
     
-    // 全局设置
+    // Globals
     globals: true,
     
-    // 超时设置
+    // Timeout
     testTimeout: 10000,
     
-    // 设置文件
+    // Setup files
     setupFiles: [],
   },
   

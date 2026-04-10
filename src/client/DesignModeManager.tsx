@@ -56,7 +56,7 @@ export const DesignModeManager: React.FC = () => {
 
       // Check if element is marked as static content
       if (!target.hasAttribute(AttributeNames.staticContent)) {
-        // alert('该元素不可编辑：只有纯静态文本可以编辑（不包含变量或表达式）');
+        // alert('Not editable: only plain static text (no expressions).');
         return;
       }
 
@@ -153,7 +153,7 @@ export const DesignModeManager: React.FC = () => {
 
     const handleMouseOut = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // 如果元素有右键菜单保持的 hover 状态，不要移除它
+      // Keep hover while context-menu hover flag is set
       if (!target.hasAttribute(AttributeNames.contextMenuHover)) {
         target.removeAttribute('data-design-hover');
       }

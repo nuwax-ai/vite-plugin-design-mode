@@ -52,17 +52,17 @@ export interface DesignModeConfig {
 }
 
 interface DesignModeContextType {
-  // 状态
+  // State
   isDesignMode: boolean;
   selectedElement: HTMLElement | null;
   modifications: Modification[];
   isConnected: boolean;
   bridgeStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
 
-  // 配置
+  // Config
   config: DesignModeConfig;
 
-  // 操作方法
+  // Actions
   toggleDesignMode: () => void;
   selectElement: (element: HTMLElement | null) => void;
   modifyElementClass: (element: HTMLElement, newClass: string) => Promise<void>;
@@ -80,7 +80,7 @@ interface DesignModeContextType {
   ) => Promise<void>;
   resetModifications: () => void;
 
-  // 桥接器方法
+  // Bridge helpers
   sendMessage: <T extends DesignModeMessage>(message: T) => Promise<void>;
   sendMessageWithResponse: <
     T extends DesignModeMessage,
@@ -100,7 +100,7 @@ export const DesignModeProvider: React.FC<{
   children: React.ReactNode;
   config?: DesignModeConfig;
 }> = ({ children, config: userConfig = {} }) => {
-  // 默认配置
+  // Defaults
   const defaultConfig: DesignModeConfig = {
     enabled: true,
     iframeMode: {
@@ -122,7 +122,7 @@ export const DesignModeProvider: React.FC<{
     ...userConfig,
   };
 
-  // 状态
+  // State
   const [isDesignMode, setIsDesignMode] = useState(false);
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(
     null
@@ -134,7 +134,7 @@ export const DesignModeProvider: React.FC<{
   >('connecting');
   const [config] = useState<DesignModeConfig>(defaultConfig);
 
-  // 批量更新防抖
+  // Batch debounce state
   const [batchUpdateTimer, setBatchUpdateTimer] =
     useState<NodeJS.Timeout | null>(null);
   const [pendingBatchUpdates, setPendingBatchUpdates] = useState<
@@ -147,30 +147,30 @@ export const DesignModeProvider: React.FC<{
   >([]);
 
   /**
-   * 初始化桥接器连接和消息监听
+   * Wire iframe bridge listeners
    */
   useEffect(() => {
-    // 初始化桥接器
+    // Bridge setup
     if (config.iframeMode?.enabled) {
       setBridgeStatus('connecting');
 
-      // 监听桥接器连接状态
+      // Poll isConnected
       const connectionCheck = setInterval(() => {
         const connected = bridge.isConnected();
         setIsConnected(connected);
         setBridgeStatus(connected ? 'connected' : 'disconnected');
       }, 1000);
 
-      // 设置消息监听器
+      // Subscriptions
       const unsubscribeHandlers: (() => void)[] = [];
 
-      // 监听设计模式切换
+      // TOGGLE_DESIGN_MODE
       unsubscribeHandlers.push(
         bridge.on<ToggleDesignModeMessage>('TOGGLE_DESIGN_MODE', message => {
           const newState = message.enabled;
           setIsDesignMode(newState);
 
-          // 确认状态变化
+          // Echo DESIGN_MODE_CHANGED
           if (window.self !== window.top) {
             sendToParent({
               type: 'DESIGN_MODE_CHANGED',
@@ -181,31 +181,31 @@ export const DesignModeProvider: React.FC<{
         })
       );
 
-      // 监听样式更新
+      // UPDATE_STYLE
       unsubscribeHandlers.push(
         bridge.on<UpdateStyleMessage>('UPDATE_STYLE', async message => {
           await handleExternalStyleUpdate(message);
         })
       );
 
-      // 监听内容更新
+      // UPDATE_CONTENT
       unsubscribeHandlers.push(
         bridge.on<UpdateContentMessage>('UPDATE_CONTENT', async message => {
           await handleExternalContentUpdate(message);
         })
       );
 
-      // 监听批量更新
+      // BATCH_UPDATE
       unsubscribeHandlers.push(
         bridge.on<BatchUpdateMessage>('BATCH_UPDATE', async message => {
           await handleExternalBatchUpdate(message);
         })
       );
 
-      // 监听心跳
+      // HEARTBEAT
       unsubscribeHandlers.push(
         bridge.on<HeartbeatMessage>('HEARTBEAT', _ => {
-          // 回复心跳
+          // Echo HEARTBEAT
           bridge.send({
             type: 'HEARTBEAT',
             payload: { timestamp: Date.now() },
@@ -214,7 +214,7 @@ export const DesignModeProvider: React.FC<{
         })
       );
 
-      // 监听健康检查
+      // HEALTH_CHECK
       unsubscribeHandlers.push(
         bridge.on<HealthCheckMessage>('HEALTH_CHECK', async message => {
           const healthStatus = await bridge.healthCheck();
@@ -233,7 +233,7 @@ export const DesignModeProvider: React.FC<{
         })
       );
 
-      // 初始健康检查
+      // Initial health probe
       const initialHealthCheck = setTimeout(async () => {
         try {
           const health = await bridge.healthCheck();
@@ -252,7 +252,7 @@ export const DesignModeProvider: React.FC<{
   }, [config]);
 
   /**
-   * 发送消息到父窗口
+   * postMessage when iframe + connected
    */
   const sendToParent = useCallback(
     (message: IframeToParentMessage) => {
@@ -269,27 +269,27 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 根据源码信息查找元素
+   * findElementBySourceInfo
    */
   const findElementBySourceInfo = useCallback(
     (sourceInfo: SourceInfo): HTMLElement | null => {
-      // 1. 尝试通过 elementId 查找 (最快)
+      // 1) element-id
       if (sourceInfo.elementId) {
         const element = document.querySelector(`[${AttributeNames.elementId}="${sourceInfo.elementId}"]`);
         if (element) return element as HTMLElement;
       }
 
-      // 2. 尝试通过 file/line/column 属性查找 (如果存在)
+      // 2) legacy file/line/column attrs
       const selector = `[${AttributeNames.file}="${sourceInfo.fileName}"][${AttributeNames.line}="${sourceInfo.lineNumber}"][${AttributeNames.column}="${sourceInfo.columnNumber}"]`;
       const element = document.querySelector(selector);
       if (element) return element as HTMLElement;
 
-      // 3. 尝试通过 children-source 查找 (用于查找 pass-through 内容的宿主元素)
+      // 3) children-source
       const childrenSourceValue = `${sourceInfo.fileName}:${sourceInfo.lineNumber}:${sourceInfo.columnNumber}`;
       const elementByChildrenSource = document.querySelector(`[${AttributeNames.childrenSource}="${childrenSourceValue}"]`);
       if (elementByChildrenSource) return elementByChildrenSource as HTMLElement;
 
-      // 4. 扫描所有带有 info 属性的元素 (最慢，但作为后备方案)
+      // 4) scan all -info
       const allElements = document.querySelectorAll(`[${AttributeNames.info}]`);
       for (let i = 0; i < allElements.length; i++) {
         const el = allElements[i] as HTMLElement;
@@ -316,7 +316,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 处理外部样式更新
+   * Parent-driven style patch
    */
   const handleExternalStyleUpdate = useCallback(
     async (message: UpdateStyleMessage) => {
@@ -326,7 +326,7 @@ export const DesignModeProvider: React.FC<{
       const { sourceInfo, newClass } = updateMessage.payload;
 
       try {
-        // 验证消息
+        // validate
         const validation = messageValidator.validate(updateMessage);
         if (!validation.isValid) {
           console.error(
@@ -336,7 +336,7 @@ export const DesignModeProvider: React.FC<{
           return;
         }
 
-        // 根据 sourceInfo 查找元素
+        // resolve element
         const element = findElementBySourceInfo(sourceInfo);
         if (!element) {
           console.error(
@@ -358,12 +358,12 @@ export const DesignModeProvider: React.FC<{
 
         const oldClass = element.className;
 
-        // 查找所有具有相同 element-id 的元素（列表项同步）
+        // Same element-id → list sync
         const elementId = element.getAttribute(AttributeNames.elementId);
         let relatedElements: HTMLElement[] = [element];
 
         if (elementId) {
-          // 使用 element-id 查找所有相同的列表项
+          // query all [element-id]
           const allElementsWithId = Array.from(
             document.querySelectorAll(`[${AttributeNames.elementId}]`)
           ) as HTMLElement[];
@@ -376,7 +376,7 @@ export const DesignModeProvider: React.FC<{
           console.warn('[DesignMode] Element missing element-id attribute, only updating current element');
         }
 
-        // 应用样式更新到所有相关元素（列表项同步）
+        // Apply class to all peers
         relatedElements.forEach(el => {
           el.setAttribute('data-ignore-mutation', 'true');
           el.className = newClass;
@@ -387,12 +387,12 @@ export const DesignModeProvider: React.FC<{
         });
 
 
-        // 更新选中的元素状态（如果当前选中的是这个元素）
+        // Refresh selection ref
         if (selectedElement === element) {
           setSelectedElement(element);
         }
 
-        // 更新源码 - 直接使用 sourceInfo
+        // (persist via API — commented)
         // try {
         //   const response = await fetch('/__appdev_design_mode/update', {
         //     method: 'POST',
@@ -417,7 +417,7 @@ export const DesignModeProvider: React.FC<{
         //   throw error;
         // }
 
-        // 发送更新完成消息
+        // STYLE_UPDATED
         sendToParent({
           type: 'STYLE_UPDATED',
           payload: {
@@ -434,7 +434,7 @@ export const DesignModeProvider: React.FC<{
           error
         );
 
-        // 发送错误消息
+        // ERROR
         sendToParent({
           type: 'ERROR',
           payload: {
@@ -456,7 +456,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 处理外部内容更新
+   * Parent-driven content patch
    */
   const handleExternalContentUpdate = useCallback(
     async (message: UpdateContentMessage) => {
@@ -466,7 +466,7 @@ export const DesignModeProvider: React.FC<{
       const { sourceInfo, newContent } = updateMessage.payload;
 
       try {
-        // 验证消息
+        // validate
         const validation = messageValidator.validate(updateMessage);
         if (!validation.isValid) {
           console.error(
@@ -476,7 +476,7 @@ export const DesignModeProvider: React.FC<{
           return;
         }
 
-        // 根据 sourceInfo 查找元素
+        // resolve element
         const element = findElementBySourceInfo(sourceInfo);
         if (!element) {
           console.error(
@@ -498,12 +498,12 @@ export const DesignModeProvider: React.FC<{
 
         const originalContent = element.innerText || element.textContent || '';
 
-        // 查找所有具有相同 element-id 的元素（列表项同步）
+        // Same element-id → list sync
         const elementId = element.getAttribute(AttributeNames.elementId);
         let relatedElements: HTMLElement[] = [element];
 
         if (elementId) {
-          // 使用 element-id 查找所有相同的列表项
+          // query all [element-id]
           const allElementsWithId = Array.from(
             document.querySelectorAll(`[${AttributeNames.elementId}]`)
           ) as HTMLElement[];
@@ -516,7 +516,7 @@ export const DesignModeProvider: React.FC<{
           console.warn('[DesignMode] Element missing element-id attribute, only updating current element');
         }
 
-        // 应用内容更新到所有相关元素（列表项同步）
+        // Apply text to all peers (list sync)
         relatedElements.forEach(el => {
           el.setAttribute('data-ignore-mutation', 'true');
           el.innerText = newContent;
@@ -527,14 +527,14 @@ export const DesignModeProvider: React.FC<{
         });
 
 
-        // 更新选中的元素状态（如果当前选中的是这个元素）
+        // Refresh selection ref
         if (selectedElement === element) {
           setSelectedElement(element);
         }
 
-        // 只有在 persist 为 true (默认) 时才更新源码
+        // persist flag (commented)
         // if (updateMessage.payload.persist !== false) {
-        //   // 更新源码 - 使用 extractSourceInfo 获取源码信息
+        //   // Persist via API using extractSourceInfo (commented)
         //   const elementSourceInfo = extractSourceInfo(element);
         //   if (elementSourceInfo) {
         //     try {
@@ -563,7 +563,7 @@ export const DesignModeProvider: React.FC<{
         //   }
         // }
 
-        // 发送更新完成消息
+        // STYLE_UPDATED
         sendToParent({
           type: 'CONTENT_UPDATED_CALLBACK',
           payload: {
@@ -580,7 +580,7 @@ export const DesignModeProvider: React.FC<{
           error
         );
 
-        // 发送错误消息
+        // ERROR
         sendToParent({
           type: 'ERROR',
           payload: {
@@ -602,7 +602,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 更新源码文件
+   * updateSource (HTTP)
    */
   const updateSource = useCallback(
     async (
@@ -645,7 +645,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 处理外部批量更新
+   * Parent BATCH_UPDATE
    */
   const handleExternalBatchUpdate = useCallback(
     async (message: BatchUpdateMessage) => {
@@ -653,7 +653,7 @@ export const DesignModeProvider: React.FC<{
       const { updates } = updateMessage.payload;
 
       try {
-        // 验证消息
+        // validate
         const validation = messageValidator.validate(updateMessage);
         if (!validation.isValid) {
           console.error(
@@ -663,7 +663,7 @@ export const DesignModeProvider: React.FC<{
           return;
         }
 
-        // 批量处理更新
+        // Promise.allSettled items
         const results = await Promise.allSettled(
           updates.map(async (update: any) => {
             const element = findElementBySourceInfo(update.sourceInfo);
@@ -697,7 +697,7 @@ export const DesignModeProvider: React.FC<{
       } catch (error) {
         console.error('[DesignMode] Error handling batch update:', error);
 
-        // 发送错误消息
+        // ERROR
         sendToParent({
           type: 'ERROR',
           payload: {
@@ -713,7 +713,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 元素选择处理
+   * selectElement
    */
   const selectElement = useCallback(
     async (element: HTMLElement | null) => {
@@ -724,32 +724,32 @@ export const DesignModeProvider: React.FC<{
         setSelectedElement(null);
       }
 
-      // 发送选择信息到父窗口（仅在iframe环境下）
+      // iframe: ELEMENT_SELECTED
       if (element && config.iframeMode?.enabled) {
-        // 使用 resolveSourceInfo 获取正确的源位置
-        // 对于 UI 组件（如 Button），会返回其使用位置而非定义位置
+        // resolveSourceInfo for usage site
+
         const sourceInfo = resolveSourceInfo(element);
         // console.log('[DesignModeContext] selectElement - resolveSourceInfo:', sourceInfo);
 
         if (sourceInfo) {
-          // 判断是否为静态文本：
-          // 1. 检查元素是否有 static-content 属性
-          // 2. 严格验证元素是否真的只包含纯文本节点（不包含其他元素标签）
+          // Static text if attr + pure text
+
+
           const hasStaticContentAttr = element.hasAttribute(AttributeNames.staticContent);
           const isActuallyPureText = isPureStaticText(element);
           const isStaticText = hasStaticContentAttr && isActuallyPureText;
 
-          // 判断是否为静态 className：
-          // 检查元素是否有 static-class 属性（表示 className 是纯静态字符串，可编辑）
+          // static-class attr
+
           const isStaticClass = element.hasAttribute(AttributeNames.staticClass);
 
-          // 获取文本内容：如果是静态文本，返回完整内容；否则也返回内容（用于显示）
+
           let textContent = '';
           if (isStaticText) {
-            // 对于静态文本，使用 textContent 获取所有文本（包括隐藏的）
+
             textContent = element.textContent || element.innerText || '';
           } else {
-            // 对于非静态文本，也返回内容（可能为空）
+
             textContent = element.innerText || element.textContent || '';
           }
 
@@ -758,8 +758,8 @@ export const DesignModeProvider: React.FC<{
             className: element.className,
             textContent: textContent,
             sourceInfo,
-            isStaticText: isStaticText || false, // 默认为 false
-            isStaticClass: isStaticClass, // 标记 className 是否可编辑
+            isStaticText: isStaticText || false,
+            isStaticClass: isStaticClass,
           };
 
           sendToParent({
@@ -785,7 +785,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 切换设计模式
+   * toggleDesignMode
    */
   const toggleDesignMode = useCallback(() => {
     setIsDesignMode(prev => {
@@ -798,11 +798,11 @@ export const DesignModeProvider: React.FC<{
   }, []);
 
   /**
-   * 提取元素源码信息
+   * Local extractSourceInfo helper
    */
   const extractSourceInfo = useCallback(
     (element: HTMLElement): SourceInfo | null => {
-      // 优先尝试从 info JSON 属性获取
+      // -info JSON
       const sourceInfoStr = element.getAttribute(AttributeNames.info);
       if (sourceInfoStr) {
         try {
@@ -817,7 +817,7 @@ export const DesignModeProvider: React.FC<{
         }
       }
 
-      // 备用方案：逐个属性获取
+      // legacy attrs
       const fileName = element.getAttribute(AttributeNames.file);
       const lineStr = element.getAttribute(AttributeNames.line);
       const columnStr = element.getAttribute(AttributeNames.column);
@@ -836,20 +836,20 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 修改元素样式
+   * modifyElementClass
    */
   const modifyElementClass = useCallback(
     async (element: HTMLElement, newClass: string) => {
       const oldClasses = element.className;
       const mergedClasses = twMerge(oldClasses, newClass);
 
-      // 更新DOM
+      // twMerge + DOM
       element.className = mergedClasses;
 
-      // 更新源码
+      // PATCH /update
       await updateSource(element, mergedClasses, 'style', oldClasses);
 
-      // 添加到修改历史
+      // modifications list
       const modification: Modification = {
         id: Date.now().toString(),
         element: element.id || 'unknown',
@@ -861,7 +861,7 @@ export const DesignModeProvider: React.FC<{
 
       setModifications(prev => [modification, ...prev]);
 
-      // 如果在iframe中，发送更新消息
+      // STYLE_UPDATED to parent
       if (config.iframeMode?.enabled) {
         const sourceInfo = extractSourceInfo(element);
         if (sourceInfo) {
@@ -881,7 +881,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 更新元素内容
+   * updateElementContent
    */
   const updateElementContent = useCallback(
     async (element: HTMLElement, newContent: string) => {
@@ -889,13 +889,13 @@ export const DesignModeProvider: React.FC<{
       const originalContent = element.innerText;
 
 
-      // 更新DOM
+      // twMerge + DOM
       element.innerText = newContent;
 
-      // 更新源码
+      // PATCH /update
       await updateSource(element, newContent, 'content', originalContent);
 
-      // 如果在iframe中，发送更新消息
+      // STYLE_UPDATED to parent
       if (config.iframeMode?.enabled) {
         const sourceInfo = extractSourceInfo(element);
         if (sourceInfo) {
@@ -915,7 +915,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 批量更新元素
+   * batchUpdateElements
    */
   const batchUpdateElements = useCallback(
     async (
@@ -927,7 +927,7 @@ export const DesignModeProvider: React.FC<{
       }>
     ) => {
       if (!config.batchUpdate?.enabled) {
-        // 如果批量更新未启用，逐个处理
+        // Sequential fallback
         await Promise.all(
           updates.map(update => {
             if (update.type === 'style') {
@@ -940,19 +940,19 @@ export const DesignModeProvider: React.FC<{
         return;
       }
 
-      // 批量更新模式
+      // Debounced queue
       const newUpdates = [...pendingBatchUpdates, ...updates];
       setPendingBatchUpdates(newUpdates);
 
-      // 清除之前的定时器
+      // Reset debounce timer
       if (batchUpdateTimer) {
         clearTimeout(batchUpdateTimer);
       }
 
-      // 设置新的定时器
+      // Schedule flush
       const timer = setTimeout(async () => {
         try {
-          // 构建批量更新请求
+          // Build payload
           const batchUpdateItems = newUpdates.map(update => {
             const sourceInfo = extractSourceInfo(update.element);
             if (!sourceInfo) {
@@ -967,7 +967,7 @@ export const DesignModeProvider: React.FC<{
             };
           });
 
-          // 如果在iframe环境中，发送批量更新请求到父窗口
+          // iframe: bridge BATCH_UPDATE
           if (config.iframeMode?.enabled) {
             await bridge.send({
               type: 'BATCH_UPDATE',
@@ -975,7 +975,7 @@ export const DesignModeProvider: React.FC<{
               timestamp: Date.now(),
             });
           } else {
-            // 在主窗口中，直接调用API
+            // top: fetch batch endpoint
             await fetch('/__appdev_design_mode/batch-update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -985,7 +985,7 @@ export const DesignModeProvider: React.FC<{
             });
           }
 
-          // 清理批量更新队列
+          // Clear queue
           setPendingBatchUpdates([]);
         } catch (error) {
           console.error('[DesignMode] Batch update failed:', error);
@@ -1007,14 +1007,14 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 重置所有修改
+   * resetModifications
    */
   const resetModifications = useCallback(() => {
     window.location.reload();
   }, []);
 
   /**
-   * 发送消息到父窗口
+   * postMessage when iframe + connected
    */
   const sendMessage = useCallback(
     async <T extends DesignModeMessage>(message: T) => {
@@ -1026,7 +1026,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 发送消息并等待响应
+   * sendMessageWithResponse
    */
   const sendMessageWithResponse = useCallback(
     async <T extends DesignModeMessage, R extends DesignModeMessage>(
@@ -1042,7 +1042,7 @@ export const DesignModeProvider: React.FC<{
   );
 
   /**
-   * 健康检查
+   * healthCheck
    */
   const healthCheck = useCallback(async () => {
     if (config.iframeMode?.enabled) {
@@ -1054,17 +1054,17 @@ export const DesignModeProvider: React.FC<{
   return (
     <DesignModeContext.Provider
       value={{
-        // 状态
+        // State
         isDesignMode,
         selectedElement,
         modifications,
         isConnected,
         bridgeStatus,
 
-        // 配置
+        // Config
         config,
 
-        // 操作方法
+        // Actions
         toggleDesignMode,
         selectElement,
         modifyElementClass,
@@ -1072,7 +1072,7 @@ export const DesignModeProvider: React.FC<{
         batchUpdateElements,
         resetModifications,
 
-        // 桥接器方法
+        // Bridge helpers
         sendMessage,
         sendMessageWithResponse,
         healthCheck,

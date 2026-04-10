@@ -8,7 +8,7 @@ export interface UpdateRequest {
   column: number;
   newValue: string;
   type: 'style' | 'content';
-  originalValue?: string; // 添加原始值用于匹配
+  originalValue?: string; // Original value for matching/replacement
 }
 
 export function performUpdate(root: string, data: UpdateRequest): { success: boolean, message: string } {
@@ -53,14 +53,12 @@ export function performUpdate(root: string, data: UpdateRequest): { success: boo
       console.warn('[appdev-design-mode] Missing originalValue for content update');
     }
   } else if (type === 'style') {
-    // TODO: 实现样式更新
-    // 简单的样式更新实现：查找 className="..." 并替换
-    // 注意：这只是一个临时的简单实现，更健壮的实现应该使用 AST
+    // TODO: Full style update pipeline
+    // Simple implementation: find className="..." and replace (AST would be more robust)
     if (originalValue) {
-       // 尝试查找 className="originalValue"
+       // Try className="originalValue"
        const escapedOriginal = originalValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-       // 匹配 className="...", class="...", className={...} 等
-       // 这里简化处理，假设是 className="value" 格式
+       // Matches className="...", class="...", className={...}, etc.; simplified to className="value"
        const regex = new RegExp(`(className=["'])${escapedOriginal}(["'])`, 'g');
        const newSourceCode = sourceCode.replace(regex, `$1${newValue}$2`);
 
