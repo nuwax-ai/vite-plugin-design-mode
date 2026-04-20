@@ -9,6 +9,7 @@ export interface DesignModeOptions {
   include?: string[];
   enableBackup?: boolean; // Enable file backups (default false)
   enableHistory?: boolean; // Enable update history (default false)
+  framework?: 'auto' | 'react' | 'vue';
 }
 
 export interface SourceMappingInfo {

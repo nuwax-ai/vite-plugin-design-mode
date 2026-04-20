@@ -2,6 +2,7 @@ import type { ViteDevServer } from 'vite';
 import type { DesignModeOptions } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
+import { applyVueSfcTemplateUpdate } from './vueSfcUpdater';
 
 export function createServerMiddleware(
   options: Required<DesignModeOptions>,
@@ -201,7 +202,8 @@ async function handleModifySource(req: any, res: any, rootDir: string) {
           originalValue: oldStyles || '',
           type: 'style',
         },
-        rootDir
+        rootDir,
+        filePath
       );
 
       // Persist
@@ -303,7 +305,8 @@ async function handleUpdate(req: any, res: any, rootDir: string, enableBackup: b
           originalValue,
           type
         },
-        rootDir
+        rootDir,
+        fullFilePath
       );
 
       // Optional .backup copy
@@ -701,19 +704,15 @@ async function handleValidateUpdate(req: any, res: any, rootDir: string) {
 function parseElementId(
   elementId: string
 ): { fileName: string; lineNumber: number; columnNumber: number } | null {
-  const parts = elementId.split('_');
-  if (parts.length === 0) return null;
+  // Support IDs shaped like "<file>:<line>:<column>_<elementType>[_<index>]".
+  const match = elementId.match(/^(.*):(\d+):(\d+)_/);
+  if (!match) return null;
 
-  const [filePosition, ...rest] = parts;
-  const positionParts = filePosition.split(':');
+  const fileName = match[1];
+  const lineNumber = parseInt(match[2], 10);
+  const columnNumber = parseInt(match[3], 10);
 
-  if (positionParts.length !== 3) return null;
-
-  const [fileName, lineNumberStr, columnNumberStr] = positionParts;
-  const lineNumber = parseInt(lineNumberStr);
-  const columnNumber = parseInt(columnNumberStr);
-
-  if (isNaN(lineNumber) || isNaN(columnNumber)) return null;
+  if (!fileName || isNaN(lineNumber) || isNaN(columnNumber)) return null;
 
   return {
     fileName,
@@ -732,7 +731,8 @@ async function smartReplaceInSource(
     originalValue?: string;
     type: 'style' | 'content' | 'attribute';
   },
-  rootDir: string
+  rootDir: string,
+  filePath?: string
 ): Promise<string> {
   const lines = content.split('\n');
   const targetLine = Math.max(0, options.lineNumber - 1);
@@ -743,6 +743,17 @@ async function smartReplaceInSource(
 
   const line = lines[targetLine];
   let newLine = line;
+  const isVueFile = Boolean(filePath && filePath.endsWith('.vue'));
+
+  if (isVueFile) {
+    return applyVueSfcTemplateUpdate(content, {
+      lineNumber: options.lineNumber,
+      columnNumber: options.columnNumber,
+      newValue: options.newValue,
+      originalValue: options.originalValue,
+      type: options.type,
+    });
+  }
 
   try {
     switch (options.type) {
@@ -761,7 +772,7 @@ async function smartReplaceInSource(
     return lines.join('\n');
   } catch (error) {
     console.error('[DesignMode] Smart replace failed:', error);
-    return line; // Fallback to original line
+    return content; // Fallback to original content
   }
 }
 
@@ -870,7 +881,8 @@ async function processSingleUpdate(update: any, rootDir: string, batchId: string
         originalValue: update.originalValue,
         type: update.type
       },
-      rootDir
+      rootDir,
+      fullFilePath
     );
 
     if (enableBackup) {
@@ -934,3 +946,4 @@ function getLineContext(lines: string[], targetLine: number): { before: string; 
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+

@@ -1,6 +1,6 @@
 {
   "name": "@xagi/vite-plugin-design-mode",
-  "version": "1.0.37",
+  "version": "1.0.38",
   "description": "Vite plugin for Design Mode - enables visual editing of React components with source mapping",
   "type": "module",
   "main": "./dist/index.es.js",
@@ -38,15 +38,17 @@
   },
   "peerDependenciesMeta": {
     "react": {
-      "optional": false
+      "optional": true
     },
     "react-dom": {
-      "optional": false
+      "optional": true
     }
   },
   "dependencies": {
     "@babel/standalone": "^7.23.0",
     "@babel/traverse": "^7.24.0",
+    "@vue/compiler-dom": "^3.5.32",
+    "@vue/compiler-sfc": "^3.5.32",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.4.0"
   },

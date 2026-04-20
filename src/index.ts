@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import { createServerMiddleware } from './core/serverMiddleware';
 import { transformSourceCode } from './core/astTransformer';
+import { transformVueSfcTemplate } from './core/vueSfcTransformer';
 
 
 export interface DesignModeOptions {
@@ -49,6 +50,15 @@ export interface DesignModeOptions {
    * @default false
    */
   enableHistory?: boolean;
+
+  /**
+   * Target framework mode.
+   * - auto: detect from project dependencies
+   * - react: force React client injection
+   * - vue: disable React client injection for Vue projects
+   * @default 'auto'
+   */
+  framework?: 'auto' | 'react' | 'vue';
 }
 
 const DEFAULT_OPTIONS: Required<DesignModeOptions> = {
@@ -57,9 +67,10 @@ const DEFAULT_OPTIONS: Required<DesignModeOptions> = {
   attributePrefix: 'data-xagi',
   verbose: true,
   exclude: ['node_modules', 'dist'],
-  include: ['src/**/*.{ts,js,tsx,jsx}'],
+  include: ['src/**/*.{ts,js,tsx,jsx,vue}'],
   enableBackup: false,
   enableHistory: false,
+  framework: 'auto',
 };
 
 import { fileURLToPath } from 'url';
@@ -79,6 +90,10 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
   let basePath = '/';
   // Current Vite command (serve vs build)
   let currentCommand: 'serve' | 'build' = 'serve';
+  // Framework runtime resolution
+  let resolvedFramework: 'react' | 'vue' = 'react';
+  let hasReactRuntime = true;
+  let hasWarnedReactMissing = false;
 
   // Whether the plugin should run (dev by default; prod only if allowed)
   const isPluginEnabled = () => {
@@ -101,6 +116,9 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
       if (!isPluginEnabled()) {
         return null;
       }
+      if (!hasReactRuntime) {
+        return null;
+      }
       if (id === VIRTUAL_CLIENT_MODULE_ID) {
         return RESOLVED_VIRTUAL_CLIENT_MODULE_ID;
       }
@@ -114,6 +132,9 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
       }
 
       if (id === RESOLVED_VIRTUAL_CLIENT_MODULE_ID) {
+        if (!hasReactRuntime) {
+          return 'export {};';
+        }
         const clientEntryPath = resolveClientEntryPath();
         if (!existsSync(clientEntryPath)) {
           throw new Error(
@@ -145,8 +166,10 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
           // Read the original file content
           const code = readFileSync(id, 'utf-8');
 
-          // Transform the code to add data attributes
-          const transformedCode = transformSourceCode(code, id, options);
+          // Transform source to add design-mode attributes before framework plugins run.
+          const transformedCode = id.endsWith('.vue')
+            ? transformVueSfcTemplate(code, id, options)
+            : transformSourceCode(code, id, options);
 
           // Return the transformed code
           // React plugin will then process this code to compile JSX
@@ -162,6 +185,10 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
 
     config(config, { command }) {
       currentCommand = command;
+      const projectRoot = config.root ?? process.cwd();
+      const runtime = resolveFrameworkMode(projectRoot, options.framework);
+      resolvedFramework = runtime.framework;
+      hasReactRuntime = runtime.hasReactRuntime;
 
       basePath = config.base || '/';
       // Normalize base: leading slash; trailing slash unless root
@@ -176,8 +203,6 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
       if (!isPluginEnabled()) {
         return {};
       }
-
-      const projectRoot = config.root ?? process.cwd();
 
       // Merge with user fs.allow
       const existingAllow = config.server?.fs?.allow || [];
@@ -200,19 +225,17 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
       // Plugin package root (client bundle)
       allowedPaths.add(pluginDistPath);
 
-      return {
+      if (options.verbose && !hasReactRuntime && !hasWarnedReactMissing) {
+        hasWarnedReactMissing = true;
+        console.warn(
+          '[appdev-design-mode] React runtime not detected; client UI injection is disabled for compatibility.'
+        );
+      }
+
+      const pluginConfig: Record<string, unknown> = {
         define: {
           __APPDEV_DESIGN_MODE__: true,
           __APPDEV_DESIGN_MODE_VERBOSE__: options.verbose,
-        },
-        esbuild: {
-          logOverride: { 'this-is-undefined-in-esm': 'silent' },
-          jsx: 'automatic', // Ensure JSX automatic mode for all projects
-          jsxDev: false,    // Disable dev mode for better performance
-        },
-        optimizeDeps: {
-          // Pre-bundle React for dev
-          include: ['react', 'react-dom'],
         },
         server: {
           fs: {
@@ -221,6 +244,19 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
           },
         },
       };
+
+      if (hasReactRuntime) {
+        pluginConfig.esbuild = {
+          logOverride: { 'this-is-undefined-in-esm': 'silent' },
+          jsx: 'automatic',
+          jsxDev: false,
+        };
+        pluginConfig.optimizeDeps = {
+          include: ['react', 'react-dom'],
+        };
+      }
+
+      return pluginConfig;
     },
 
     configureServer(server) {
@@ -239,6 +275,11 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
           url.includes('@appdev-design-mode/client.js');
 
         if (isClientRequest) {
+          if (!hasReactRuntime) {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
           try {
             // Load bundled client via virtual module (ssr: false = browser; React from app node_modules)
             const result = await server.transformRequest(
@@ -285,6 +326,25 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
         return html;
       }
 
+      if (!hasReactRuntime) {
+        return {
+          html,
+          tags: [
+            {
+              tag: 'script',
+              attrs: {
+                type: 'text/javascript',
+              },
+              injectTo: 'head',
+              children: `window.__APPDEV_DESIGN_MODE_CONFIG__ = ${JSON.stringify({
+                attributePrefix: options.attributePrefix,
+                framework: resolvedFramework,
+              })};`,
+            },
+          ],
+        };
+      }
+
       // Client script URL respects Vite base (subpath deploys)
       const clientScriptPath = `${basePath}@appdev-design-mode/client.js`.replace(/\/+/g, '/');
 
@@ -301,6 +361,7 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
             injectTo: 'head',
             children: `window.__APPDEV_DESIGN_MODE_CONFIG__ = ${JSON.stringify({
               attributePrefix: options.attributePrefix,
+              framework: resolvedFramework,
             })};`,
           },
           {
@@ -322,6 +383,9 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
 
       // Virtual client module: compile TSX with esbuild (not user's React plugin)
       if (id === RESOLVED_VIRTUAL_CLIENT_MODULE_ID) {
+        if (!hasReactRuntime) {
+          return 'export {};';
+        }
         const { transformWithEsbuild } = await import('vite');
         const result = await transformWithEsbuild(code, id, {
           loader: 'tsx',
@@ -350,7 +414,9 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
       }
 
       try {
-        const transformedCode = transformSourceCode(code, id, options);
+        const transformedCode = id.endsWith('.vue')
+          ? transformVueSfcTemplate(code, id, options)
+          : transformSourceCode(code, id, options);
         return transformedCode;
       } catch (error) {
         return code;
@@ -427,6 +493,46 @@ function shouldProcessFile(
 }
 
 export default appdevDesignModePlugin;
+
+function resolveFrameworkMode(
+  projectRoot: string,
+  configured: 'auto' | 'react' | 'vue'
+): { framework: 'react' | 'vue'; hasReactRuntime: boolean } {
+  if (configured === 'react') {
+    return { framework: 'react', hasReactRuntime: true };
+  }
+
+  if (configured === 'vue') {
+    return { framework: 'vue', hasReactRuntime: false };
+  }
+
+  const packageJsonPath = resolve(projectRoot, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return { framework: 'react', hasReactRuntime: true };
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+    const hasReact = Boolean(deps.react && deps['react-dom']);
+    const hasVue = Boolean(deps.vue);
+
+    if (hasReact) {
+      return { framework: 'react', hasReactRuntime: true };
+    }
+
+    if (hasVue) {
+      return { framework: 'vue', hasReactRuntime: false };
+    }
+
+    return { framework: 'react', hasReactRuntime: true };
+  } catch {
+    return { framework: 'react', hasReactRuntime: true };
+  }
+}
 
 function resolveClientEntryPath(): string {
   const distClientPath = resolve(__dirname, 'client/index.tsx');
