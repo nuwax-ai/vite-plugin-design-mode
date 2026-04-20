@@ -24,7 +24,7 @@ import {
 import { bridge, messageValidator } from './bridge';
 import { AttributeNames } from './utils/attributeNames';
 import { isPureStaticText } from './utils/elementUtils';
-import { extractSourceInfo } from './utils/sourceInfo';
+import { extractSourceInfo as extractSourceInfoFromAttributes } from './utils/sourceInfo';
 import { resolveSourceInfo } from './utils/sourceInfoResolver';
 
 export interface Modification {
@@ -802,35 +802,7 @@ export const DesignModeProvider: React.FC<{
    */
   const extractSourceInfo = useCallback(
     (element: HTMLElement): SourceInfo | null => {
-      // -info JSON
-      const sourceInfoStr = element.getAttribute(AttributeNames.info);
-      if (sourceInfoStr) {
-        try {
-          const sourceInfo = JSON.parse(sourceInfoStr);
-          return {
-            fileName: sourceInfo.fileName,
-            lineNumber: sourceInfo.lineNumber,
-            columnNumber: sourceInfo.columnNumber,
-          };
-        } catch (e) {
-          console.warn(`Failed to parse ${AttributeNames.info}:`, e);
-        }
-      }
-
-      // legacy attrs
-      const fileName = element.getAttribute(AttributeNames.file);
-      const lineStr = element.getAttribute(AttributeNames.line);
-      const columnStr = element.getAttribute(AttributeNames.column);
-
-      if (fileName && lineStr && columnStr) {
-        return {
-          fileName,
-          lineNumber: parseInt(lineStr, 10),
-          columnNumber: parseInt(columnStr, 10),
-        };
-      }
-
-      return null;
+      return extractSourceInfoFromAttributes(element);
     },
     []
   );

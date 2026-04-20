@@ -3,6 +3,7 @@ import { useDesignMode } from './DesignModeContext';
 import { ElementInfo, SourceInfo } from '../types/messages';
 import { AttributeNames, isSourceMappingAttribute } from './utils/attributeNames';
 import { isPureStaticText } from './utils/elementUtils';
+import { extractSourceInfo as extractSourceInfoFromAttributes } from './utils/sourceInfo';
 
 /**
  * Click/hover selection for mapped elements; emits to listeners / iframe.
@@ -344,42 +345,7 @@ export class SelectionManager {
    * extractSourceInfo
    */
   private extractSourceInfo(element: HTMLElement): SourceInfo | null {
-    // Prefer -info JSON
-    const sourceInfoStr = element.getAttribute(AttributeNames.info);
-    if (sourceInfoStr) {
-      try {
-        const sourceInfo = JSON.parse(sourceInfoStr);
-        return {
-          fileName: sourceInfo.fileName,
-          lineNumber: sourceInfo.lineNumber,
-          columnNumber: sourceInfo.columnNumber,
-          componentName: sourceInfo.componentName,
-          elementType: sourceInfo.elementType,
-          importPath: sourceInfo.importPath
-        };
-      } catch (e) {
-        console.warn('[SelectionManager] Failed to parse source info:', e);
-      }
-    }
-
-    // Legacy per-field attrs
-    const fileName = element.getAttribute(AttributeNames.file);
-    const lineStr = element.getAttribute(AttributeNames.line);
-    const columnStr = element.getAttribute(AttributeNames.column);
-    const componentName = element.getAttribute(AttributeNames.component) || undefined;
-    const importPath = element.getAttribute(AttributeNames.import) || undefined;
-
-    if (fileName && lineStr && columnStr) {
-      return {
-        fileName,
-        lineNumber: parseInt(lineStr, 10),
-        columnNumber: parseInt(columnStr, 10),
-        componentName,
-        importPath
-      };
-    }
-
-    return null;
+    return extractSourceInfoFromAttributes(element);
   }
 
   /**

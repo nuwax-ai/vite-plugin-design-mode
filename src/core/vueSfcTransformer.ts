@@ -67,6 +67,9 @@ export function transformVueSfcTemplate(
     const elementId = `${id}:${line}:${column}_${elementType}_${elementIndex++}`;
     const sourceInfo = {
       fileName: id,
+      lineNumber: line,
+      columnNumber: column,
+      // Backward compatibility for old clients that still read `line`/`column`.
       line,
       column,
       elementId,

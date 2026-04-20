@@ -1,6 +1,6 @@
 # Vite Plugin Design Mode
 
-一个为AppDev启用设计模式功能的Vite插件，为React组件提供源码映射和可视化编辑功能。
+一个为AppDev启用设计模式功能的Vite插件，为 React/Vue 组件提供源码映射和可视化编辑能力。
 
 ## 特性
 
@@ -10,6 +10,7 @@
 - **静态内容检测**: 智能识别纯静态文本（无变量、表达式或子元素），只有静态内容才能直接编辑
 - **列表项同步**: 编辑列表项时自动同步所有相关实例（内容或样式）
 - **组件识别**: 识别组件名称、导入路径，区分组件使用位置和定义位置
+- **Vue SFC 支持**: 支持 `.vue` 文件模板注入和 AST 安全回写（class/text）
 - **实时修改**: 支持实时编辑样式和内容，并自动持久化到源码文件
 - **Tailwind CSS集成**: 内置Tailwind CSS预设，提供快速样式编辑
 - **桥接通信**: 提供消息桥接机制，支持与外部工具和设计系统集成（支持 iframe 模式）
@@ -103,10 +104,11 @@ export default defineConfig({
 - `enableInProduction: false` - 仅在开发环境生效，生产构建时自动禁用
 - `verbose: true` - 启用详细日志
 - `attributePrefix: 'data-xagi'` - 源码映射属性的前缀
-- `include: ['src/**/*.{ts,js,tsx,jsx}']` - 处理 src 目录下的 TypeScript/JavaScript/TSX/JSX 文件
+- `include: ['src/**/*.{ts,js,tsx,jsx,vue}']` - 处理 src 目录下的 TypeScript/JavaScript/TSX/JSX/Vue 文件
 - `exclude: ['node_modules', 'dist']` - 排除指定目录
 - `enableBackup: false` - 是否启用备份功能
 - `enableHistory: false` - 是否启用历史记录功能
+- `framework: 'auto'` - 自动识别 React/Vue（可显式设置 `react` 或 `vue`）
 
 ## Advanced Usage
 
@@ -131,13 +133,36 @@ export default defineConfig({
 });
 ```
 
+## Vue 3 使用说明
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import appdevDesignMode from '@xagi/vite-plugin-design-mode';
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    appdevDesignMode({
+      framework: 'vue',
+    }),
+  ],
+});
+```
+
+- `framework: 'vue'` 模式下不会注入 React 运行时 UI 脚本，这是预期行为。
+- Vue 当前支持模板元素的 `class` 与静态文本回写，复杂动态表达式会被保护性拒绝。
+
 ## 工作原理
 
-1. **编译时转换**: 插件在编译时使用Babel AST转换JSX/TSX/JS文件
-2. **抽象语法树分析**: 分析AST识别React组件和DOM元素
-   - 追踪 ImportDeclaration 以解析组件定义和导入路径
-   - 静态分析确定内容是否为纯静态文本（`isStaticContent`）
-   - 识别 UI 组件（components/ui 目录下的组件）
+1. **编译时转换**: 插件在编译时按框架选择转换链路
+   - React: 使用 Babel AST 转换 JSX/TSX/JS 文件
+   - Vue: 使用 `@vue/compiler-sfc` + `@vue/compiler-dom` 解析并转换 `.vue` 模板
+2. **抽象语法树分析**: 基于 AST 识别可编辑元素与源码位置信息
+   - React: 追踪 ImportDeclaration 以解析组件定义和导入路径，并识别 UI 组件（components/ui）
+   - React: 静态分析确定内容是否为纯静态文本（`isStaticContent`）
+   - Vue: 在模板 AST 中定位元素节点，进行注入并用于后续 AST 安全回写
 3. **源码映射数据注入**: 将源码位置信息作为紧凑的`data-*`属性（默认前缀 `data-xagi`）注入到DOM元素
    - 主要信息存储在 `data-xagi-info` JSON 属性中（减少 DOM 体积）
    - 添加 `data-xagi-element-id` 用于唯一标识和列表项同步
