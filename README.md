@@ -91,6 +91,38 @@ yarn add @xagi/vite-plugin-design-mode --dev
 pnpm add @xagi/vite-plugin-design-mode -D
 ```
 
+## 版本发布与 Tag 策略
+
+为避免预发布版本影响生产用户，仓库采用以下 npm dist-tag 规则：
+
+- `latest`：仅用于稳定正式版（如 `1.0.37`、`1.1.0`）
+- `beta`：用于 beta 预发布版本（如 `1.1.0-beta.2`）
+- `next`：与 `beta` 保持一致，指向同一个预发布版本
+
+推荐发布流程：
+
+```bash
+# 预发布（默认）
+npm run release
+# 等价于 npm run release:beta，会发布到 --tag beta
+```
+
+```bash
+# 正式发布（仅在确认稳定后执行）
+npm run release:latest
+```
+
+如果需要手动校正 dist-tag（例如误把 beta 发布到了 latest）：
+
+```bash
+# 将 latest 回指到稳定版本
+npm dist-tag add @xagi/vite-plugin-design-mode@1.0.37 latest
+
+# 将 beta/next 指向同一个预发布版本
+npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.2 beta
+npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.2 next
+```
+
 ## Basic Usage
 
 使用一键安装后，插件已自动配置，`vite.config.ts` 中会包含：
@@ -510,6 +542,14 @@ const CUSTOM_PRESETS = {
 - 更新相关文档
 
 ## 更新日志
+
+完整变更记录见 [`CHANGELOG.md`](./CHANGELOG.md)。
+
+### v1.1.0-beta.2
+- 新增 React/Vue 3 动态识别支持（`framework: 'auto'`）
+- CLI 支持在 Vue 3 + Vite 项目安装
+- 检测到 Vue 2（含 `@vitejs/plugin-vue2`）时快速失败并给出升级提示
+- 发布策略调整：`latest` 仅稳定版，预发布使用 `beta/next`
 
 ### v1.0.36
 - 更新默认属性前缀为 `data-xagi`

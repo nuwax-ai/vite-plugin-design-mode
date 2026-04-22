@@ -73,6 +73,7 @@
     "build": "vite build && tsc && tsc -p tsconfig.cli.json && node scripts/copy-client.mjs && node scripts/clean-maps.mjs",
     "release": "npm run build && npm publish --access=public",
     "release:beta": "npm run build && npm publish --access=public --tag beta",
+    "release:next": "npm run build && npm publish --access=public --tag next",
     "release:latest": "npm run build && npm publish --access=public",
     "build:cli": "tsc -p tsconfig.cli.json",
     "test": "vitest",

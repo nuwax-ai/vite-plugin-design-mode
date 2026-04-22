@@ -4,6 +4,12 @@
 
 ## 1. 核心功能 (Core Functionality)
 
+### 1.0 框架支持与识别 (Framework Support & Detection)
+- **动态双栈支持**: 支持 `react-vite` 与 `vue3-vite` 两种项目形态。
+- **自动识别**: `framework: 'auto'` 会根据项目依赖自动选择 React 或 Vue 3 处理链路。
+- **显式模式**: 可通过 `framework: 'react' | 'vue'` 强制指定处理模式。
+- **Vue 2 保护**: 检测到 `vue@2` 或 `@vitejs/plugin-vue2` 时，插件会快速失败并提示升级到 Vue 3，避免部分可用的隐性问题。
+
 ### 1.1 元素选择 (Element Selection)
 - **点击选择**: 点击 iframe 中的元素即可选中。
 - **高亮显示**: 选中的元素会显示蓝色实线边框 (`outline: 2px solid #007acc`)。
@@ -50,6 +56,11 @@
 - **导入追踪**: 追踪 `ImportDeclaration` 以解析组件定义。
 - **静态分析**: 确定内容是否为静态 (`isStaticContent`)。
 - **属性注入**: 在构建/服务过程中注入 `data-xagi-*` 属性。
+
+### 3.2.1 Vue SFC 转换链路 (`vueSfcTransformer.ts`)
+- **模板解析**: 使用 `@vue/compiler-sfc` 与 `@vue/compiler-dom` 解析 `.vue` 模板 AST。
+- **安全注入**: 在模板节点中注入源码映射属性，供运行时选择与编辑能力使用。
+- **安全回写**: 对 `class` 与静态文本进行 AST 级更新，复杂动态表达式场景保护性拒绝。
 
 ### 3.3 客户端逻辑 (Client-Side Logic)
 - **`SelectionManager`**: 处理点击/悬停事件，并解析 `data-xagi-info` 以提取 `ElementInfo`。
