@@ -1,15 +1,17 @@
 {
   "name": "@xagi/design-mode-client-react",
-  "version": "1.1.0-beta.5",
+  "version": "1.1.0-beta.6",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
-    "@xagi/design-mode-shared": "1.1.0-beta.5",
+    "@xagi/design-mode-shared": "1.1.0-beta.6",
     "tailwind-merge": "^3.4.0"
   },
   "peerDependencies": {

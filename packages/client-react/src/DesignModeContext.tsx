@@ -27,6 +27,11 @@ import { isPureStaticText } from '@xagi/design-mode-shared/elementUtils';
 import { extractSourceInfo as extractSourceInfoFromAttributes } from '@xagi/design-mode-shared/sourceInfo';
 import { resolveSourceInfo } from '@xagi/design-mode-shared/sourceInfoResolver';
 
+// TEMP: 生产环境调试日志（问题排查完成后请删除）
+const runtimeTempLog = (message: string, data?: unknown) => {
+  console.log(`[DesignModeDebug][IFRAME-REACT][TEMP] ${message}`, data);
+};
+
 export interface Modification {
   id: string;
   element: string;
@@ -146,6 +151,15 @@ export const DesignModeProvider: React.FC<{
     }>
   >([]);
 
+  useEffect(() => {
+    runtimeTempLog('DesignModeProvider mounted', {
+      href: window.location.href,
+      origin: window.location.origin,
+      isIframe: window.self !== window.top,
+      bridgeConnected: bridge.isConnected(),
+    });
+  }, []);
+
   /**
    * Wire iframe bridge listeners
    */
@@ -168,10 +182,21 @@ export const DesignModeProvider: React.FC<{
       unsubscribeHandlers.push(
         bridge.on<ToggleDesignModeMessage>('TOGGLE_DESIGN_MODE', message => {
           const newState = message.enabled;
+          runtimeTempLog('received TOGGLE_DESIGN_MODE', {
+            enabled: message.enabled,
+            requestId: message.requestId,
+            timestamp: message.timestamp,
+            bridgeConnected: bridge.isConnected(),
+          });
           setIsDesignMode(newState);
 
           // Echo DESIGN_MODE_CHANGED
           if (window.self !== window.top) {
+            runtimeTempLog('sending DESIGN_MODE_CHANGED', {
+              enabled: newState,
+              requestId: message.requestId,
+              timestamp: Date.now(),
+            });
             sendToParent({
               type: 'DESIGN_MODE_CHANGED',
               enabled: newState,
@@ -257,6 +282,13 @@ export const DesignModeProvider: React.FC<{
    */
   const sendToParent = useCallback(
     (message: IframeToParentMessage) => {
+      runtimeTempLog('sendToParent called', {
+        type: message.type,
+        requestId: (message as { requestId?: string }).requestId,
+        iframeModeEnabled: config.iframeMode?.enabled,
+        bridgeConnected: bridge.isConnected(),
+      });
+
       if (!config.iframeMode?.enabled) {
         return;
       }
@@ -264,6 +296,11 @@ export const DesignModeProvider: React.FC<{
       // 优先走 bridge；bridge 未连通或发送失败时兜底直发 parent，避免关键回执丢失。
       if (bridge.isConnected()) {
         bridge.send(message).catch(error => {
+          runtimeTempLog('bridge.send failed, fallback to parent.postMessage', {
+            type: message.type,
+            requestId: (message as { requestId?: string }).requestId,
+            error: error instanceof Error ? error.message : String(error),
+          });
           console.warn(
             '[DesignMode] Bridge send failed, fallback to window.parent.postMessage',
             error
@@ -276,6 +313,10 @@ export const DesignModeProvider: React.FC<{
       }
 
       if (window.self !== window.top) {
+        runtimeTempLog('bridge disconnected, direct parent.postMessage', {
+          type: message.type,
+          requestId: (message as { requestId?: string }).requestId,
+        });
         window.parent.postMessage(message, '*');
       }
     },
