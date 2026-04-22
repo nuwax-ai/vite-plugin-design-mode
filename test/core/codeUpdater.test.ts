@@ -1,17 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleUpdate } from '../../packages/plugin/src/core/codeUpdater';
 import * as fs from 'fs';
-import * as path from 'path';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 // Mock fs 模块
-vi.mock('fs', () => {
-  const actualFs = vi.importActual('fs');
-  return {
+vi.mock('fs', async () => {
+  const actualFs = await vi.importActual<typeof import('fs')>('fs');
+  const mockFs = {
     ...actualFs,
+    statSync: vi.fn(),
     readFileSync: vi.fn(),
     writeFileSync: vi.fn(),
     existsSync: vi.fn(),
+  };
+  return {
+    ...mockFs,
+    default: mockFs,
   };
 });
 
@@ -23,6 +27,11 @@ describe('codeUpdater', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fs.statSync).mockReturnValue({
+      size: 1024,
+      isFile: () => true,
+      isDirectory: () => false,
+    } as any);
 
     mockReq = {
       method: 'POST',
@@ -170,8 +179,10 @@ describe('codeUpdater', () => {
 
       await updatePromise;
 
-      expect(mockRes.statusCode).toBe(404);
-      expect(mockRes.end).toHaveBeenCalledWith('File not found');
+      expect(mockRes.statusCode).toBe(400);
+      const response = JSON.parse(mockRes.end?.mock.calls[0]?.[0] || '{}');
+      expect(response.success).toBe(false);
+      expect(response.message).toContain('File not found');
     });
 
     it('应该处理绝对路径', async () => {
@@ -212,7 +223,10 @@ describe('codeUpdater', () => {
 
       await updatePromise;
 
-      expect(fs.existsSync).toHaveBeenCalledWith(absolutePath);
+      expect(mockRes.statusCode).toBe(400);
+      const response = JSON.parse(mockRes.end?.mock.calls[0]?.[0] || '{}');
+      expect(response.success).toBe(false);
+      expect(response.message).toContain('Access denied');
     });
 
     it('应该处理相对路径', async () => {

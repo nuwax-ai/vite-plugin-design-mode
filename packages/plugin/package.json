@@ -20,6 +20,8 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@xagi/design-mode-client-react": "workspace:*",
+    "@xagi/design-mode-client-vue": "workspace:*",
     "@xagi/design-mode-shared": "workspace:*",
     "@babel/standalone": "^7.23.0",
     "@babel/traverse": "^7.24.0",

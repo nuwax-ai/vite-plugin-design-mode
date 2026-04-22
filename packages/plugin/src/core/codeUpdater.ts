@@ -1,4 +1,4 @@
-import fs from 'fs';
+import * as fs from 'fs';
 import path from 'path';
 import { IncomingMessage, ServerResponse } from 'http';
 
@@ -17,9 +17,38 @@ export function performUpdate(root: string, data: UpdateRequest): { success: boo
   // Resolve absolute path
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(root, filePath);
 
+  // Security: Validate path is within project root (prevent path traversal)
+  if (!isPathWithinRoot(root, absolutePath)) {
+    console.error('[appdev-design-mode] Security: Path traversal attempt blocked:', absolutePath);
+    return { success: false, message: 'Access denied: path outside project root' };
+  }
+
   if (!fs.existsSync(absolutePath)) {
     console.error('[appdev-design-mode] File not found:', absolutePath);
     return { success: false, message: 'File not found' };
+  }
+
+  // Security: Check file size limit (10MB)
+  const stats = fs.statSync(absolutePath);
+  const maxFileSize = 10 * 1024 * 1024; // 10MB
+  if (stats.size > maxFileSize) {
+    console.error('[appdev-design-mode] File too large:', absolutePath, stats.size);
+    return { success: false, message: 'File too large (max 10MB)' };
+  }
+
+  // Security: Validate file extension (only allow source files)
+  const allowedExtensions = ['.js', '.jsx', '.ts', '.tsx', '.vue'];
+  const ext = path.extname(absolutePath).toLowerCase();
+  if (!allowedExtensions.includes(ext)) {
+    console.error('[appdev-design-mode] Invalid file type:', absolutePath);
+    return { success: false, message: 'Invalid file type' };
+  }
+
+  // Security: Validate newValue length (prevent DoS)
+  const maxValueLength = 100000; // 100KB
+  if (newValue.length > maxValueLength) {
+    console.error('[appdev-design-mode] Value too large:', newValue.length);
+    return { success: false, message: 'Value too large (max 100KB)' };
   }
 
   let sourceCode = fs.readFileSync(absolutePath, 'utf-8');
@@ -118,4 +147,14 @@ function readBody(req: IncomingMessage): Promise<string> {
     });
     req.on('error', reject);
   });
+}
+
+function isPathWithinRoot(rootDir: string, targetPath: string): boolean {
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(targetPath);
+  if (resolvedRoot === resolvedTarget) {
+    return true;
+  }
+  const relativePath = path.relative(resolvedRoot, resolvedTarget);
+  return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }

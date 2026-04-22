@@ -100,6 +100,12 @@ importers:
       '@vue/compiler-sfc':
         specifier: ^3.5.32
         version: 3.5.33
+      '@xagi/design-mode-client-react':
+        specifier: workspace:*
+        version: link:../client-react
+      '@xagi/design-mode-client-vue':
+        specifier: workspace:*
+        version: link:../client-vue
       '@xagi/design-mode-shared':
         specifier: workspace:*
         version: link:../client-shared

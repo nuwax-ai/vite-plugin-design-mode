@@ -76,9 +76,11 @@ const DEFAULT_OPTIONS: Required<DesignModeOptions> = {
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { existsSync, readFileSync } from 'fs';
+import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const require = createRequire(import.meta.url);
 
 // Virtual module id for loading client code in Vite
 const VIRTUAL_CLIENT_MODULE_ID = 'virtual:appdev-design-mode-client';
@@ -172,6 +174,10 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
           // React plugin will then process this code to compile JSX
           return transformedCode;
         } catch (error) {
+          // Log error in verbose mode for debugging
+          if (options.verbose) {
+            console.error('[appdev-design-mode] Transform error for', id, ':', error);
+          }
           // Return null to let other plugins handle it
           return null;
         }
@@ -378,20 +384,8 @@ function appdevDesignModePlugin(userOptions: DesignModeOptions = {}): Plugin {
         return result.code;
       }
 
-      const shouldProcess = shouldProcessFile(id, options);
-
-      if (!shouldProcess) {
-        return code;
-      }
-
-      try {
-        const transformedCode = id.endsWith('.vue')
-          ? transformVueSfcTemplate(code, id, options)
-          : transformSourceCode(code, id, options);
-        return transformedCode;
-      } catch (error) {
-        return code;
-      }
+      // User source files are already processed in load hook, skip here to avoid double processing
+      return code;
     },
 
     buildStart() {
@@ -543,16 +537,16 @@ function getVueMajorVersion(versionRange?: string): 2 | 3 | null {
 }
 
 function resolveClientEntryPath(mode: ClientRuntimeMode): string {
+  const packageName =
+    mode === 'react'
+      ? '@xagi/design-mode-client-react'
+      : '@xagi/design-mode-client-vue';
+
+  const packageEntry = resolvePackageEntry(packageName);
   const candidates =
     mode === 'react'
-      ? [
-          resolve(__dirname, '../client-react/dist/index.js'),
-          resolve(__dirname, '../../client-react/src/index.tsx'),
-        ]
-      : [
-          resolve(__dirname, '../client-vue/dist/index.js'),
-          resolve(__dirname, '../../client-vue/src/index.ts'),
-        ];
+      ? [packageEntry, resolve(__dirname, '../../client-react/src/index.tsx')]
+      : [packageEntry, resolve(__dirname, '../../client-vue/src/index.ts')];
 
   for (const candidate of candidates) {
     if (existsSync(candidate)) {
@@ -563,5 +557,13 @@ function resolveClientEntryPath(mode: ClientRuntimeMode): string {
   throw new Error(
     `[appdev-design-mode] Cannot resolve client entry for runtime mode: ${mode}`
   );
+}
+
+function resolvePackageEntry(packageName: string): string {
+  try {
+    return require.resolve(packageName);
+  } catch {
+    return '';
+  }
 }
 

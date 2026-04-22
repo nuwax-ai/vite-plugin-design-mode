@@ -106,6 +106,13 @@ async function handleGetSource(url: URL, res: any, rootDir: string) {
 
     const filePath = path.resolve(rootDir, sourceInfo.fileName);
 
+    // Security: Validate path is within project root (prevent path traversal)
+    if (!isPathWithinRoot(rootDir, filePath)) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'Access denied: path outside project root' }));
+      return;
+    }
+
     try {
       await fs.promises.access(filePath, fs.constants.F_OK);
     } catch {
@@ -191,6 +198,14 @@ async function handleModifySource(req: any, res: any, rootDir: string) {
       }
 
       const filePath = path.resolve(rootDir, sourceInfo.fileName);
+
+      // Security: Validate path is within project root (prevent path traversal)
+      if (!isPathWithinRoot(rootDir, filePath)) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: 'Access denied: path outside project root' }));
+        return;
+      }
+
       const fileContent = await fs.promises.readFile(filePath, 'utf-8');
 
       const updatedContent = await smartReplaceInSource(
@@ -945,5 +960,15 @@ function getLineContext(lines: string[], targetLine: number): { before: string; 
 
 function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isPathWithinRoot(rootDir: string, targetPath: string): boolean {
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(targetPath);
+  const relativePath = path.relative(resolvedRoot, resolvedTarget);
+  if (resolvedRoot === resolvedTarget) {
+    return true;
+  }
+  return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }
 
