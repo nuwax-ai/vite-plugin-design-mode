@@ -1,6 +1,6 @@
 # Vite Plugin Design Mode
 
-一个为AppDev启用设计模式功能的Vite插件，为 React/Vue 组件提供源码映射和可视化编辑能力。
+一个为 AppDev 启用设计模式功能的 Vite 插件，为 React 和 Vue 3 项目提供源码映射与可视化编辑能力（不支持 Vue 2）。
 
 ## 特性
 
@@ -16,6 +16,12 @@
 - **桥接通信**: 提供消息桥接机制，支持与外部工具和设计系统集成（支持 iframe 模式）
 - **开发服务器集成**: 无缝集成Vite开发服务器，支持热重载
 - **零配置**: 开箱即用，无需复杂配置即可开始使用
+
+## 框架支持矩阵
+
+- React + Vite：支持（自动识别或 `framework: 'react'`）
+- Vue 3 + Vite：支持（自动识别或 `framework: 'vue'`）
+- Vue 2 + Vite：不支持（启动时会直接报错，避免出现部分可用的隐性问题）
 
 ## Installation
 
@@ -33,6 +39,10 @@ pnpm dlx @xagi/vite-plugin-design-mode install
 - 在 `package.json` 的 `devDependencies` 中添加插件依赖
 - 自动在 `vite.config.ts/js/mjs` 中添加插件配置
 - 使用默认配置，无需手动传参
+
+CLI 适用前提：
+- 项目需为 Vite 项目（`package.json` 中存在 `vite`）
+- 项目需使用 React 或 Vue 3（`package.json` 中存在 `react`，或 `vue@3.x`）
 
 **注意：** CLI 只会在配置文件中添加配置，不会执行包管理器安装命令。配置完成后，请手动运行包管理器安装命令来安装依赖：
 
@@ -108,7 +118,7 @@ export default defineConfig({
 - `exclude: ['node_modules', 'dist']` - 排除指定目录
 - `enableBackup: false` - 是否启用备份功能
 - `enableHistory: false` - 是否启用历史记录功能
-- `framework: 'auto'` - 自动识别 React/Vue（可显式设置 `react` 或 `vue`）
+- `framework: 'auto'` - 自动识别 React / Vue 3（可显式设置 `react` 或 `vue`）
 
 ## Advanced Usage
 
@@ -153,6 +163,7 @@ export default defineConfig({
 
 - `framework: 'vue'` 模式下不会注入 React 运行时 UI 脚本，这是预期行为。
 - Vue 当前支持模板元素的 `class` 与静态文本回写，复杂动态表达式会被保护性拒绝。
+- 如检测到 Vue 2（或 `@vitejs/plugin-vue2`），插件会在启动时抛错并提示升级到 Vue 3。
 
 ## 工作原理
 

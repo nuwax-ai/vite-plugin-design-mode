@@ -498,17 +498,50 @@ function resolveFrameworkMode(
   projectRoot: string,
   configured: 'auto' | 'react' | 'vue'
 ): { framework: 'react' | 'vue'; hasReactRuntime: boolean } {
+  const packageMeta = readProjectPackageMeta(projectRoot);
+  const vueMajor = getVueMajorVersion(packageMeta.deps.vue);
+  const hasVue2Plugin = Boolean(packageMeta.deps['@vitejs/plugin-vue2']);
+
   if (configured === 'react') {
     return { framework: 'react', hasReactRuntime: true };
   }
 
   if (configured === 'vue') {
+    // Explicit vue mode means the user expects Vue support; fail fast if Vue 2 is detected.
+    if (hasVue2Plugin || vueMajor === 2) {
+      throw new Error(
+        '[appdev-design-mode] Vue 2 is not supported. Please upgrade to Vue 3 and use @vitejs/plugin-vue.'
+      );
+    }
     return { framework: 'vue', hasReactRuntime: false };
   }
 
+  const hasReact = Boolean(packageMeta.deps.react && packageMeta.deps['react-dom']);
+
+  if (hasReact) {
+    return { framework: 'react', hasReactRuntime: true };
+  }
+
+  // Auto mode should still hard-reject Vue 2 projects to avoid silent partial behavior.
+  if (hasVue2Plugin || vueMajor === 2) {
+    throw new Error(
+      '[appdev-design-mode] Detected Vue 2 project. This plugin supports Vue 3 only.'
+    );
+  }
+
+  if (vueMajor === 3) {
+    return { framework: 'vue', hasReactRuntime: false };
+  }
+
+  return { framework: 'react', hasReactRuntime: true };
+}
+
+function readProjectPackageMeta(
+  projectRoot: string
+): { deps: Record<string, string> } {
   const packageJsonPath = resolve(projectRoot, 'package.json');
   if (!existsSync(packageJsonPath)) {
-    return { framework: 'react', hasReactRuntime: true };
+    return { deps: {} };
   }
 
   try {
@@ -516,22 +549,26 @@ function resolveFrameworkMode(
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
-    const hasReact = Boolean(deps.react && deps['react-dom']);
-    const hasVue = Boolean(deps.vue);
-
-    if (hasReact) {
-      return { framework: 'react', hasReactRuntime: true };
-    }
-
-    if (hasVue) {
-      return { framework: 'vue', hasReactRuntime: false };
-    }
-
-    return { framework: 'react', hasReactRuntime: true };
+    return { deps: { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) } };
   } catch {
-    return { framework: 'react', hasReactRuntime: true };
+    return { deps: {} };
   }
+}
+
+function getVueMajorVersion(versionRange?: string): 2 | 3 | null {
+  if (!versionRange) {
+    return null;
+  }
+  // Strip leading range operators/spaces and read the first semver-like number.
+  const match = versionRange.trim().match(/(\d+)/);
+  if (!match) {
+    return null;
+  }
+  const major = Number(match[1]);
+  if (major === 2 || major === 3) {
+    return major;
+  }
+  return null;
 }
 
 function resolveClientEntryPath(): string {

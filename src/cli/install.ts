@@ -71,6 +71,10 @@ interface PackageJson {
   packageManager?: string;
 }
 
+function getDependencyVersion(packageJson: PackageJson, depName: string): string | undefined {
+  return packageJson.dependencies?.[depName] || packageJson.devDependencies?.[depName];
+}
+
 /** package.json lists vite */
 function hasVite(packageJson: PackageJson): boolean {
   return (
@@ -85,6 +89,33 @@ function hasReact(packageJson: PackageJson): boolean {
     !!packageJson.dependencies?.react ||
     !!packageJson.devDependencies?.react
   );
+}
+
+/** package.json lists vue */
+function hasVue(packageJson: PackageJson): boolean {
+  return !!getDependencyVersion(packageJson, 'vue');
+}
+
+/**
+ * Returns false only when we can confidently identify a Vue 2 range.
+ * Unknown or non-semver formats (workspace:, github:, file:) are treated as supported.
+ */
+function isVue3Version(version: string): boolean {
+  const normalized = version.trim();
+  if (!normalized) return true;
+
+  // Explicit Vue 2 signals
+  if (/(^|[^\d])2\./.test(normalized) || /(^|[^\d])\^?~?2(\D|$)/.test(normalized)) {
+    return false;
+  }
+
+  // If we can see a clear "3" major marker, treat as Vue 3.
+  if (/(^|[^\d])3\./.test(normalized) || /(^|[^\d])\^?~?3(\D|$)/.test(normalized)) {
+    return true;
+  }
+
+  // Non-standard specifier or unknown major: do not hard block.
+  return true;
 }
 
 /** PLUGIN_NAME present in deps */
@@ -296,6 +327,9 @@ function main() {
 
   const hasViteDep = hasVite(packageJson);
   const hasReactDep = hasReact(packageJson);
+  const hasVueDep = hasVue(packageJson);
+  const vueVersion = getDependencyVersion(packageJson, 'vue');
+  const hasVue3Dep = hasVueDep && isVue3Version(vueVersion || '');
   
   if (!hasViteDep) {
     console.error('✗ Error: Vite not found in package.json');
@@ -304,14 +338,29 @@ function main() {
     process.exit(1);
   }
   
-  if (!hasReactDep) {
-    console.error('✗ Error: React not found in package.json');
-    console.error('  This plugin targets React + Vite.');
-    console.error('  Install: npm install react react-dom');
+  // Framework guard: this CLI supports Vite projects using React and/or Vue.
+  // Keep Vite as hard prerequisite, but avoid rejecting valid Vue+Vite projects.
+  if (!hasReactDep && !hasVueDep) {
+    console.error('✗ Error: Neither React nor Vue found in package.json');
+    console.error('  This plugin targets Vite projects with React or Vue 3.');
+    console.error('  Install one of: npm install react react-dom  OR  npm install vue@^3');
     process.exit(1);
   }
-  
-  console.log('✓ Detected Vite + React');
+
+  if (!hasReactDep && hasVueDep && !hasVue3Dep) {
+    console.error(`✗ Error: Unsupported Vue version: ${vueVersion}`);
+    console.error('  Vue 2.x is not supported. Please use Vue 3 in Vite projects.');
+    console.error('  Install: npm install vue@^3');
+    process.exit(1);
+  }
+
+  if (hasReactDep && hasVueDep && hasVue3Dep) {
+    console.log('✓ Detected Vite + React/Vue3');
+  } else if (hasReactDep) {
+    console.log('✓ Detected Vite + React');
+  } else {
+    console.log('✓ Detected Vite + Vue3');
+  }
 
   const pluginVersion = getPluginVersion();
   console.log(`📦 Plugin version: ${pluginVersion}`);
