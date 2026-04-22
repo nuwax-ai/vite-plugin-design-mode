@@ -175,6 +175,7 @@ export const DesignModeProvider: React.FC<{
             sendToParent({
               type: 'DESIGN_MODE_CHANGED',
               enabled: newState,
+              requestId: message.requestId,
               timestamp: Date.now(),
             });
           }
@@ -256,13 +257,26 @@ export const DesignModeProvider: React.FC<{
    */
   const sendToParent = useCallback(
     (message: IframeToParentMessage) => {
-      if (config.iframeMode?.enabled && bridge.isConnected()) {
+      if (!config.iframeMode?.enabled) {
+        return;
+      }
+
+      // 优先走 bridge；bridge 未连通或发送失败时兜底直发 parent，避免关键回执丢失。
+      if (bridge.isConnected()) {
         bridge.send(message).catch(error => {
-          console.error(
-            '[DesignMode] Failed to send message to parent:',
+          console.warn(
+            '[DesignMode] Bridge send failed, fallback to window.parent.postMessage',
             error
           );
+          if (window.self !== window.top) {
+            window.parent.postMessage(message, '*');
+          }
         });
+        return;
+      }
+
+      if (window.self !== window.top) {
+        window.parent.postMessage(message, '*');
       }
     },
     [config.iframeMode?.enabled]
