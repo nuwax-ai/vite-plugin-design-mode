@@ -96,31 +96,54 @@ pnpm add @xagi/vite-plugin-design-mode -D
 为避免预发布版本影响生产用户，仓库采用以下 npm dist-tag 规则：
 
 - `latest`：仅用于稳定正式版（如 `1.0.37`、`1.1.0`）
-- `beta`：用于 beta 预发布版本（如 `1.1.0-beta.2`）
-- `next`：与 `beta` 保持一致，指向同一个预发布版本
+- `next`：用于灰度/预发布消费通道（如 `1.1.0-beta.5`）
+- `beta`：用于 beta 预发布通道（可按需与 `next` 保持一致）
 
-推荐发布流程：
+### 多包发布 SOP（推荐）
+
+发布采用统一版本策略，以下 4 个包必须同版本：
+
+- `@xagi/design-mode-shared`
+- `@xagi/design-mode-client-react`
+- `@xagi/design-mode-client-vue`
+- `@xagi/vite-plugin-design-mode`
 
 ```bash
-# 预发布（默认）
-npm run release
-# 等价于 npm run release:beta，会发布到 --tag beta
+# 1) 切换 npm 官方源（强烈建议每次发布前显式执行）
+nrm use npm
+
+# 2) 如需升级版本，一次性同步全部包版本和内部依赖
+pnpm run release:version:sync -- 1.1.0-beta.6
+
+# 3) 一键发布 next（预检 -> 构建 -> 按依赖顺序发布 -> 发布后校验）
+pnpm run release:next
+
+# 4) 一键发布 beta（与 next 同流程，但写入 beta tag）
+pnpm run release:beta
+
+# 5) 发布前演练（不真正 publish）
+pnpm run release:next:dry-run
+pnpm run release:beta:dry-run
 ```
 
+其中 `release:next` / `release:beta` 都会自动执行以下步骤：
+
+1. `release:preflight`：校验 registry、版本一致性、禁止 `workspace:*` 泄露到发布包
+2. `release:build`：构建所有包
+3. `release:publish:*`：按依赖顺序发布（`shared -> react/vue并发 -> plugin`）
+4. `release:verify:*`：校验对应 dist-tag（`next` 或 `beta`）及目标版本可见性
+
+### 常见问题与修复
+
+- 报错 `ERR_PNPM_WORKSPACE_PKG_NOT_FOUND`  
+  原因：发布包中包含 `workspace:*` 依赖。  
+  处理：运行 `release:preflight` 找出问题并改成明确版本号。
+
+- `next` tag 未指向本次版本  
+  处理：
+
 ```bash
-# 正式发布（仅在确认稳定后执行）
-npm run release:latest
-```
-
-如果需要手动校正 dist-tag（例如误把 beta 发布到了 latest）：
-
-```bash
-# 将 latest 回指到稳定版本
-npm dist-tag add @xagi/vite-plugin-design-mode@1.0.37 latest
-
-# 将 beta/next 指向同一个预发布版本
-npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.2 beta
-npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.2 next
+npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.5 next
 ```
 
 ## Basic Usage
@@ -544,6 +567,19 @@ const CUSTOM_PRESETS = {
 ## 更新日志
 
 完整变更记录见 [`CHANGELOG.md`](./CHANGELOG.md)。
+
+### v1.1.0-beta.5
+- 修复 npm 发布产物中的 workspace 依赖协议问题，确保外部使用 pnpm/npm 安装可正常解析依赖
+
+### v1.1.0-beta.4
+- 修复插件发布后客户端运行时入口解析，优先从安装包解析 React/Vue runtime
+- 增加路径安全校验，避免通过路径前缀绕过项目根目录限制
+- 完成多包迁移后的测试回归修复，测试全量通过
+
+### v1.1.0-beta.3
+- 完成项目向 `packages/*` 多包结构迁移
+- 保留并迁移 CLI 到 plugin 包内，发布产物包含 CLI
+- 调整 examples/test 引用路径，移除根 `src` 目录实现
 
 ### v1.1.0-beta.2
 - 新增 React/Vue 3 动态识别支持（`framework: 'auto'`）

@@ -67,6 +67,7 @@
 - **`EditManager`**: 管理 `contentEditable` 状态，处理保存，并执行列表项同步。
 - **`DesignModeContext`**: 管理全局状态以及与父窗口（如果在 iframe 中）的通信。
 - **`DesignModeBridge`**: 处理 iframe 与父级编辑器/IDE 之间的消息传递。
+- **运行时入口解析**: 插件优先从已安装包解析 React/Vue 客户端入口，确保发布后环境可用。
 
 ## 4. 通信协议 (Communication Protocol)
 
@@ -79,4 +80,5 @@
 
 ## 5. 服务器中间件 (Server Middleware)
 - **`/__appdev_design_mode/update`**: 处理源代码更新的 API 端点。
-- **`codeUpdater.ts`**: 基于行/列信息安全修改源文件的逻辑（使用 `magic-string` 等）。
+- **`codeUpdater.ts`**: 基于行/列信息和规则校验进行源码更新（含文件类型/大小与路径安全校验）。
+- **路径安全防护**: `serverMiddleware` 与 `codeUpdater` 均校验目标路径必须位于项目根目录内，防止路径穿越。
