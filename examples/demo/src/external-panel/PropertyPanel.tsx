@@ -46,7 +46,7 @@ import {
   HistoryOutlined,
   StarOutlined
 } from '@ant-design/icons';
-import type { ElementInfo, SourceInfo } from '../../../../src/types/messages';
+import type { ElementInfo, SourceInfo } from '../../../../packages/client-shared/src/messages';
 import StylePanel from './StylePanel';
 import ContentPanel from './ContentPanel';
 

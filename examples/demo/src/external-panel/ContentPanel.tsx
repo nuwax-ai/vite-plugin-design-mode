@@ -16,7 +16,7 @@ import {
   UndoOutlined,
   EyeOutlined
 } from '@ant-design/icons';
-import type { ElementInfo, SourceInfo } from '../../../../src/types/messages';
+import type { ElementInfo, SourceInfo } from '../../../../packages/client-shared/src/messages';
 
 const { TextArea } = Input;
 const { Option } = Select;

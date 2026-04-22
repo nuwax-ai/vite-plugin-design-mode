@@ -1,0 +1,29 @@
+{
+  "name": "@xagi/design-mode-shared",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./bridge": "./dist/bridge.js",
+    "./messages": "./dist/messages.js",
+    "./types": "./dist/types.js",
+    "./attributeNames": "./dist/attributeNames.js",
+    "./elementUtils": "./dist/elementUtils.js",
+    "./sourceInfo": "./dist/sourceInfo.js",
+    "./sourceInfoResolver": "./dist/sourceInfoResolver.js",
+    "./UpdateService": "./dist/UpdateService.js",
+    "./HistoryManager": "./dist/HistoryManager.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -2,7 +2,7 @@ import React from '../../react';
 import { useState, useEffect } from 'react';
 import { Card, Button, Input, Select, Slider, ColorPicker, InputNumber, Divider, Tag, Space, Row, Col } from 'antd';
 import { BoldOutlined, ItalicOutlined, UnderlineOutlined, FontSizeOutlined, BgColorsOutlined, BorderOutlined } from '@ant-design/icons';
-import type { ElementInfo, SourceInfo } from '../../../../src/types/messages';
+import type { ElementInfo, SourceInfo } from '../../../../packages/client-shared/src/messages';
 
 const { TextArea } = Input;
 const { Option } = Select;

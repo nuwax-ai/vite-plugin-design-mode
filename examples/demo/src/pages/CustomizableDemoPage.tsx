@@ -2,10 +2,10 @@ import React from '../react';
 import { useState, useEffect } from 'react';
 import { Card, Row, Col, Button, Space, Divider, message, Badge } from 'antd';
 import { ThunderboltOutlined, CodeOutlined, BgColorsOutlined, EditOutlined, EyeOutlined, ReloadOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import type { ElementInfo, SourceInfo } from '../../../src/types/messages';
+import type { ElementInfo, SourceInfo } from '../../../../packages/client-shared/src/messages';
 import PropertyPanel from '../external-panel/PropertyPanel';
 import type { PropertyPanelConfig } from '../external-panel/PropertyPanel';
-import { bridge } from '../../../src/client/bridge';
+import { bridge } from '../../../../packages/client-react/src/bridge';
 
 export default function CustomizableDemoPage() {
   const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);

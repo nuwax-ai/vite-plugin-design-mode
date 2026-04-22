@@ -72,9 +72,9 @@ npm run build
 cd examples/demo
 
 # 直接运行编译后的 CLI 文件
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 # 或
-node ../../dist/cli/index.js uninstall
+node ../../packages/plugin/dist/cli/index.js uninstall
 ```
 
 ### 方法 3: 使用 tsx 直接运行 TypeScript 文件（开发调试）
@@ -93,11 +93,11 @@ npm install --save-dev tsx
 
 ```bash
 # 在项目根目录
-tsx src/cli/index.ts install
+tsx packages/plugin/src/cli/index.ts install
 
 # 或指定工作目录为测试项目
 cd examples/demo
-tsx ../../src/cli/index.ts install
+tsx ../../packages/plugin/src/cli/index.ts install
 ```
 
 ## 完整测试流程示例
@@ -128,10 +128,10 @@ npm link @xagi/vite-plugin-design-mode
 npx @xagi/vite-plugin-design-mode install
 
 # 方法 B: 直接运行编译后的文件
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 
 # 方法 C: 使用 tsx（开发时）
-tsx ../../src/cli/index.ts install
+tsx ../../packages/plugin/src/cli/index.ts install
 ```
 
 **验证安装结果：**
@@ -147,9 +147,9 @@ tsx ../../src/cli/index.ts install
 # 使用相同的方法运行卸载命令
 npx @xagi/vite-plugin-design-mode uninstall
 # 或
-node ../../dist/cli/index.js uninstall
+node ../../packages/plugin/dist/cli/index.js uninstall
 # 或
-tsx ../../src/cli/index.ts uninstall
+tsx ../../packages/plugin/src/cli/index.ts uninstall
 ```
 
 **验证卸载结果：**
@@ -195,14 +195,14 @@ cp package.json.backup package.json
 ```bash
 # npm 项目
 cd examples/basic
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 
 # pnpm 项目
 cd examples/demo  # 如果有 pnpm-lock.yaml
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 
 # yarn 项目（如果有 yarn.lock）
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 ```
 
 ## 调试技巧
@@ -233,7 +233,7 @@ ls -la dist/cli/
 
 1. **命令未找到**
    - 确保已运行 `npm run build`
-   - 检查 `dist/cli/index.js` 是否存在
+   - 检查 `packages/plugin/dist/cli/index.js` 是否存在
    - 如果使用 npm link，确保已正确链接
 
 2. **权限问题**
@@ -257,13 +257,13 @@ echo "进入测试项目..."
 cd examples/demo
 
 echo "测试安装..."
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 
 echo "等待 2 秒..."
 sleep 2
 
 echo "测试卸载..."
-node ../../dist/cli/index.js uninstall
+node ../../packages/plugin/dist/cli/index.js uninstall
 
 echo "测试完成！"
 ```

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import appdevDesignMode from '../../src/index';
+import appdevDesignMode from '../../packages/plugin/src/index';
 
 export default defineConfig({
   plugins: [

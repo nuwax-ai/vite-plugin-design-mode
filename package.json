@@ -2,23 +2,9 @@
   "name": "@xagi/vite-plugin-design-mode",
   "version": "1.1.0-beta.3",
   "description": "Vite plugin for Design Mode - enables source mapping and visual editing for React/Vue projects",
+  "private": true,
   "type": "module",
-  "main": "./dist/index.es.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.es.js",
-      "require": "./dist/index.umd.js"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md"
-  ],
-  "bin": {
-    "vite-plugin-design-mode": "dist/cli/index.js"
-  },
+  "packageManager": "pnpm@10.18.3",
   "keywords": [
     "vite",
     "plugin",
@@ -30,33 +16,6 @@
   ],
   "author": "XAGI Team",
   "license": "MIT",
-  "peerDependencies": {
-    "@babel/core": "^7.0.0",
-    "@babel/types": "^7.0.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "vue": "^3.0.0",
-    "vite": ">=5.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    },
-    "vue": {
-      "optional": true
-    }
-  },
-  "dependencies": {
-    "@babel/standalone": "^7.23.0",
-    "@babel/traverse": "^7.24.0",
-    "@vue/compiler-dom": "^3.5.32",
-    "@vue/compiler-sfc": "^3.5.32",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^3.4.0"
-  },
   "devDependencies": {
     "@types/babel__core": "^7.20.0",
     "@types/babel__standalone": "^7.1.9",
@@ -69,18 +28,18 @@
     "vitest": "^1.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && tsc && tsc -p tsconfig.cli.json && node scripts/copy-client.mjs && node scripts/clean-maps.mjs",
-    "release": "npm run build && npm publish --access=public",
-    "release:beta": "npm run build && npm publish --access=public --tag beta",
-    "release:next": "npm run build && npm publish --access=public --tag next",
-    "release:latest": "npm run build && npm publish --access=public",
-    "build:cli": "tsc -p tsconfig.cli.json",
+    "build": "pnpm -r --filter './packages/**' build",
+    "build:plugin": "pnpm --filter vite-plugin-appdev-design-mode build",
+    "build:shared": "pnpm --filter @xagi/design-mode-shared build",
+    "build:react": "pnpm --filter @xagi/design-mode-client-react build",
+    "build:vue": "pnpm --filter @xagi/design-mode-client-vue build",
+    "clean": "rm -rf packages/*/dist",
+    "release": "pnpm build && cd packages/plugin && npm publish --access=public",
+    "release:beta": "pnpm build && cd packages/plugin && npm publish --access=public --tag beta",
+    "release:next": "pnpm build && cd packages/plugin && npm publish --access=public --tag next",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "test:cli": "bash scripts/test-cli.sh",
-    "lint": "eslint src --ext .ts,.tsx"
+    "test:ui": "vitest --ui"
   }
 }

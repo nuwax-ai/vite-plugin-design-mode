@@ -1,0 +1,22 @@
+{
+  "name": "@xagi/design-mode-client-vue",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@xagi/design-mode-shared": "workspace:*",
+    "tailwind-merge": "^3.4.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.3.0"
+  },
+  "devDependencies": {
+    "@vue/compiler-sfc": "^3.3.0",
+    "typescript": "^5.0.0"
+  }
+}

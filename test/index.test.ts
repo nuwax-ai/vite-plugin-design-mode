@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import appdevDesignModePlugin from '../src/index';
+import appdevDesignModePlugin from '../packages/plugin/src/index';
 import type { Plugin } from 'vite';
 
 describe('@xagi/vite-plugin-design-mode', () => {

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createServerMiddleware } from '../../src/core/serverMiddleware';
-import type { DesignModeOptions } from '../../src/types';
+import { createServerMiddleware } from '../../packages/plugin/src/core/serverMiddleware';
+import type { DesignModeOptions } from '../../packages/plugin/src/types';
 
 // Mock fs 模块
 vi.mock('fs', () => {

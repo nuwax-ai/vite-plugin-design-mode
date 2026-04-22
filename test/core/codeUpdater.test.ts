@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleUpdate } from '../../src/core/codeUpdater';
+import { handleUpdate } from '../../packages/plugin/src/core/codeUpdater';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { IncomingMessage, ServerResponse } from 'http';

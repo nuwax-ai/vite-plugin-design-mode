@@ -12,19 +12,20 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
-    "emitDeclarationOnly": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@xagi/design-mode-shared": ["./packages/client-shared/src"],
+      "@xagi/design-mode-shared/*": ["./packages/client-shared/src/*"],
+      "@xagi/design-mode-client-react": ["./packages/client-react/src"],
+      "@xagi/design-mode-client-vue": ["./packages/client-vue/src"]
+    }
   },
-  "include": [
-    "src"
-  ],
   "exclude": [
     "node_modules",
-    "dist",
-    "test"
+    "**/dist",
+    "**/node_modules"
   ]
 }

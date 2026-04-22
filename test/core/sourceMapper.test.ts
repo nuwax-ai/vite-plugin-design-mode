@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createSourceMappingPlugin } from '../../src/core/sourceMapper';
-import type { DesignModeOptions } from '../../src/types';
+import { createSourceMappingPlugin } from '../../packages/plugin/src/core/sourceMapper';
+import type { DesignModeOptions } from '../../packages/plugin/src/types';
 import * as babel from '@babel/standalone';
 
 describe('sourceMapper', () => {
