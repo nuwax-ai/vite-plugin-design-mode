@@ -29,7 +29,7 @@
   },
   "scripts": {
     "build": "pnpm -r --filter './packages/**' build",
-    "build:plugin": "pnpm --filter vite-plugin-appdev-design-mode build",
+    "build:plugin": "pnpm --filter @xagi/vite-plugin-design-mode build",
     "build:shared": "pnpm --filter @xagi/design-mode-shared build",
     "build:react": "pnpm --filter @xagi/design-mode-client-react build",
     "build:vue": "pnpm --filter @xagi/design-mode-client-vue build",
