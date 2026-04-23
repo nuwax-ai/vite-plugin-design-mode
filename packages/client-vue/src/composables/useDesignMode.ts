@@ -274,11 +274,6 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
         state.selectedElement = element;
       }
 
-      // Persist to source file (skip in iframe mode - parent handles it)
-      if (!state.config.iframeMode?.enabled) {
-        await updateSource(element, newClass, 'style', oldClass);
-      }
-
       // STYLE_UPDATED
       sendToParent({
         type: 'STYLE_UPDATED',

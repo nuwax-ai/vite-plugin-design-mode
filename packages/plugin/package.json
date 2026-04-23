@@ -1,6 +1,6 @@
 {
   "name": "@xagi/vite-plugin-design-mode",
-  "version": "1.1.0-beta.14",
+  "version": "1.1.0-beta.15",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,9 +20,9 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@xagi/design-mode-client-react": "1.1.0-beta.14",
-    "@xagi/design-mode-client-vue": "1.1.0-beta.14",
-    "@xagi/design-mode-shared": "1.1.0-beta.14",
+    "@xagi/design-mode-client-react": "1.1.0-beta.15",
+    "@xagi/design-mode-client-vue": "1.1.0-beta.15",
+    "@xagi/design-mode-shared": "1.1.0-beta.15",
     "@babel/standalone": "^7.23.0",
     "@babel/traverse": "^7.24.0",
     "@vue/compiler-dom": "^3.5.32",
