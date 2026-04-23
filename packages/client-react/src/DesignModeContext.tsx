@@ -447,8 +447,10 @@ export const DesignModeProvider: React.FC<{
           setSelectedElement(element);
         }
 
-        // Persist to source file
-        await updateSource(element, newClass, 'style', oldClass);
+        // Persist to source file (skip in iframe mode - parent handles it)
+        if (!config.iframeMode?.enabled) {
+          await updateSource(element, newClass, 'style', oldClass);
+        }
 
         // STYLE_UPDATED
         sendToParent({
