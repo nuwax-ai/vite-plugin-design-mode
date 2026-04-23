@@ -447,30 +447,8 @@ export const DesignModeProvider: React.FC<{
           setSelectedElement(element);
         }
 
-        // (persist via API — commented)
-        // try {
-        //   const response = await fetch('/__appdev_design_mode/update', {
-        //     method: 'POST',
-        //     headers: {
-        //       'Content-Type': 'application/json',
-        //     },
-        //     body: JSON.stringify({
-        //       filePath: sourceInfo.fileName,
-        //       line: sourceInfo.lineNumber,
-        //       column: sourceInfo.columnNumber,
-        //       newValue: newClass,
-        //       type: 'style',
-        //       originalValue: oldClass,
-        //     }),
-        //   });
-
-        //   if (!response.ok) {
-        //     throw new Error('Failed to update source');
-        //   }
-        // } catch (error) {
-        //   console.error('[DesignMode] Error updating source:', error);
-        //   throw error;
-        // }
+        // Persist to source file
+        await updateSource(element, newClass, 'style', oldClass);
 
         // STYLE_UPDATED
         sendToParent({

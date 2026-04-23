@@ -274,6 +274,9 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
         state.selectedElement = element;
       }
 
+      // Persist to source file
+      await updateSource(element, newClass, 'style', oldClass);
+
       // STYLE_UPDATED
       sendToParent({
         type: 'STYLE_UPDATED',
