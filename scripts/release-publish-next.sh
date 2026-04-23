@@ -40,3 +40,8 @@ echo "[publish-next] publishing @xagi/vite-plugin-design-mode..."
 )
 
 echo "[publish-next] done."
+echo ""
+echo "[publish-next] --- 给集成方 / 模板维护者（复制即可）---"
+echo "  pnpm add @xagi/vite-plugin-design-mode@next -D"
+echo "  请勿在 README 中写死 beta.N；next 即当前灰度线。"
+echo "[publish-next] ---"

@@ -91,13 +91,29 @@ yarn add @xagi/vite-plugin-design-mode --dev
 pnpm add @xagi/vite-plugin-design-mode -D
 ```
 
+### 预发布 / XAGI 集成（推荐）
+
+`1.1.x` 预发布会频繁发 **`1.1.0-beta.N`**，registry 上历史 beta 会自然变多。**模板、宿主应用、内部文档请不要写死某个 `beta.N`**，否则每发一版就要改依赖。
+
+集成时请**统一跟 `next` dist-tag**（始终对应当前灰度线）：
+
+```bash
+pnpm add @xagi/vite-plugin-design-mode@next -D
+# 若直接依赖 client 包（少见），同样使用 @next：
+# pnpm add @xagi/design-mode-client-vue@next -D
+```
+
+`package.json` 里可写 **`"^1.1.0-0"`**（接受 `1.1.0` 线下任意预发版本）并定期 `pnpm update`；或在文档与 CI 中约定：**安装/升级一律执行 `pnpm add @xagi/vite-plugin-design-mode@next -D`**，由 lockfile 固定实际解析版本。
+
+稳定正式版发布后仍从 **`latest`** 安装即可（与上面预发布通道互不干扰）。
+
 ## 版本发布与 Tag 策略
 
 为避免预发布版本影响生产用户，仓库采用以下 npm dist-tag 规则：
 
 - `latest`：仅用于稳定正式版（如 `1.0.37`、`1.1.0`）
-- `next`：用于灰度/预发布消费通道（如 `1.1.0-beta.5`）
-- `beta`：用于 beta 预发布通道（可按需与 `next` 保持一致）
+- `next`：**集成方应使用的预发布通道**；标签指向当前推荐的 `1.1.0-beta.*`（或其它预发 semver），版本号会递增，**请勿在对外文档中要求用户锁定某一枚 `beta.N`**
+- `beta`：可选的额外 dist-tag（历史或兼容）；新集成优先跟 `next`
 
 ### 多包发布 SOP（推荐）
 
@@ -112,8 +128,8 @@ pnpm add @xagi/vite-plugin-design-mode -D
 # 1) 切换 npm 官方源（强烈建议每次发布前显式执行）
 nrm use npm
 
-# 2) 如需升级版本，一次性同步全部包版本和内部依赖
-pnpm run release:version:sync -- 1.1.0-beta.6
+# 2) 如需升级版本，一次性同步全部包版本和内部依赖（版本号按需替换）
+pnpm run release:version:sync -- 1.1.0-beta.12
 
 # 3) 一键发布 next（预检 -> 构建 -> 按依赖顺序发布 -> 发布后校验）
 pnpm run release:next
@@ -131,7 +147,7 @@ pnpm run release:beta:dry-run
 1. `release:preflight`：校验 registry、版本一致性、禁止 `workspace:*` 泄露到发布包
 2. `release:build`：构建所有包
 3. `release:publish:*`：按依赖顺序发布（`shared -> react/vue并发 -> plugin`）
-4. `release:verify:*`：校验对应 dist-tag（`next` 或 `beta`）及目标版本可见性
+4. `release:verify:*`：校验对应 dist-tag（`next` 或 `beta`）及目标版本可见性；`verify:next` 对 registry 传播做了**有限次重试**（可用环境变量 `VERIFY_NEXT_MAX_TRIES`、`VERIFY_NEXT_SLEEP_SECS` 调整）
 
 ### 常见问题与修复
 
