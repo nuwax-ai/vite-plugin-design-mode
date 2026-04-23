@@ -1,8 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, unref } from 'vue';
 import { useDesignMode } from '../composables/useDesignMode';
 
 const designMode = useDesignMode();
+
+/**
+ * createDesignMode 注入的 API 上，isDesignMode / selectedElement 等是 ComputedRef。
+ * 在 <script> 里直接写 designMode.selectedElement 得到的是 Ref 对象，不是 HTMLElement，
+ * 会导致 v-if、watch、computed 判断错误（例如 el.tagName 为 undefined）。
+ * 模板里 Vue 会对部分场景解包，但 script 中需显式 unref。
+ */
+const designModeOn = computed(() => unref(designMode.isDesignMode));
+const selectedEl = computed(() => unref(designMode.selectedElement));
 
 // Tailwind Presets
 const TAILWIND_PRESETS = {
@@ -41,7 +50,7 @@ const TAILWIND_PRESETS = {
 
 const currentClasses = ref('');
 
-watch(() => designMode.selectedElement, (element) => {
+watch(selectedEl, element => {
   if (element) {
     currentClasses.value = element.className;
   } else {
@@ -50,9 +59,10 @@ watch(() => designMode.selectedElement, (element) => {
 });
 
 const modifyClass = async (newClass: string) => {
-  if (!designMode.selectedElement) return;
-  await designMode.modifyElementClass(designMode.selectedElement, newClass);
-  currentClasses.value = designMode.selectedElement.className;
+  const el = selectedEl.value;
+  if (!el) return;
+  await designMode.modifyElementClass(el, newClass);
+  currentClasses.value = el.className;
 };
 
 const hasClass = (className: string) => {
@@ -60,9 +70,10 @@ const hasClass = (className: string) => {
 };
 
 const getElementTag = computed(() => {
-  if (!designMode.selectedElement) return '';
-  const el = designMode.selectedElement;
-  return el.tagName.toLowerCase() + (el.id ? `#${el.id}` : '');
+  const el = selectedEl.value;
+  if (!el) return '';
+  const tag = el.tagName?.toLowerCase() ?? '';
+  return tag + (el.id ? `#${el.id}` : '');
 });
 </script>
 
@@ -104,7 +115,7 @@ const getElementTag = computed(() => {
           width: '40px',
           height: '24px',
           borderRadius: '12px',
-          backgroundColor: designMode.isDesignMode ? '#2563eb' : '#e2e8f0',
+          backgroundColor: designModeOn ? '#2563eb' : '#e2e8f0',
           border: 'none',
           position: 'relative',
           cursor: 'pointer',
@@ -115,7 +126,7 @@ const getElementTag = computed(() => {
           :style="{
             position: 'absolute',
             top: '2px',
-            left: designMode.isDesignMode ? '18px' : '2px',
+            left: designModeOn ? '18px' : '2px',
             width: '20px',
             height: '20px',
             borderRadius: '50%',
@@ -129,7 +140,7 @@ const getElementTag = computed(() => {
 
     <!-- Edit Panel -->
     <div
-      v-if="designMode.isDesignMode && designMode.selectedElement"
+      v-if="designModeOn && selectedEl"
       style="
         pointer-events: auto;
         background-color: white;

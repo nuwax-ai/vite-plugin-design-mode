@@ -515,6 +515,12 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
   };
 
   /**
+   * 悬停高亮由 DesignModeApp 通过 data-design-hover 等在 DOM 上处理；
+   * 保留空实现供根组件调用，避免运行时 TypeError，后续可接入状态或埋点。
+   */
+  const setHoveredElement = (_element: HTMLElement | null) => {};
+
+  /**
    * selectElement
    */
   const selectElement = async (element: HTMLElement | null) => {
@@ -921,6 +927,7 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
 
     // Actions
     toggleDesignMode,
+    setHoveredElement,
     selectElement,
     modifyElementClass,
     updateElementContent,

@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch, unref } from 'vue';
 import { createDesignMode } from './composables/useDesignMode';
 import { AttributeNames } from '@xagi/design-mode-shared/attributeNames';
-import DesignModeUI from './components/DesignModeUI.vue';
-import ToastContainer from './components/ToastContainer.vue';
 
 // Create and provide design mode context
 const designMode = createDesignMode();
@@ -46,28 +44,34 @@ const handleMouseOut = (e: MouseEvent) => {
   designMode.setHoveredElement(null);
 };
 
-// Watch design mode state
-watch(() => designMode.isDesignMode, (isDesignMode) => {
-  if (!isDesignMode) {
-    document.querySelectorAll('[data-design-selected]').forEach(el => {
-      el.removeAttribute('data-design-selected');
-    });
+// Watch design mode state（API 上为 ComputedRef，需 unref 才能拿到布尔值）
+watch(
+  () => unref(designMode.isDesignMode),
+  isDesignMode => {
+    if (!isDesignMode) {
+      document.querySelectorAll('[data-design-selected]').forEach(el => {
+        el.removeAttribute('data-design-selected');
+      });
+    }
   }
-});
+);
 
 // Watch selected element
-watch(() => designMode.selectedElement, (selectedElement, oldElement) => {
-  if (oldElement) {
-    oldElement.removeAttribute('data-design-selected');
+watch(
+  () => unref(designMode.selectedElement),
+  (selectedElement, oldElement) => {
+    if (oldElement) {
+      oldElement.removeAttribute('data-design-selected');
+    }
+    if (selectedElement) {
+      selectedElement.setAttribute('data-design-selected', 'true');
+    }
   }
-  if (selectedElement) {
-    selectedElement.setAttribute('data-design-selected', 'true');
-  }
-});
+);
 
 // Lifecycle hooks
 onMounted(() => {
-  if (!designMode.isDesignMode) return;
+  if (!unref(designMode.isDesignMode)) return;
 
   document.addEventListener('click', handleClick, true);
   document.addEventListener('mouseover', handleMouseOver);
@@ -114,17 +118,19 @@ onUnmounted(() => {
 });
 
 // Re-setup listeners when design mode changes
-watch(() => designMode.isDesignMode, (isDesignMode) => {
-  if (isDesignMode) {
-    document.addEventListener('click', handleClick, true);
-    document.addEventListener('mouseover', handleMouseOver);
-    document.addEventListener('mouseout', handleMouseOut);
+watch(
+  () => unref(designMode.isDesignMode),
+  isDesignMode => {
+    if (isDesignMode) {
+      document.addEventListener('click', handleClick, true);
+      document.addEventListener('mouseover', handleMouseOver);
+      document.addEventListener('mouseout', handleMouseOut);
 
-    const styleId = 'appdev-design-mode-styles';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = `
+      const styleId = 'appdev-design-mode-styles';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
         [data-design-hover="true"] {
           outline: 2px dashed #60a5fa !important;
           outline-offset: 2px;
@@ -140,21 +146,25 @@ watch(() => designMode.isDesignMode, (isDesignMode) => {
           background-color: rgba(34, 197, 94, 0.1);
         }
       `;
-      document.head.appendChild(style);
-    }
-  } else {
-    document.removeEventListener('click', handleClick, true);
-    document.removeEventListener('mouseover', handleMouseOver);
-    document.removeEventListener('mouseout', handleMouseOut);
+        document.head.appendChild(style);
+      }
+    } else {
+      document.removeEventListener('click', handleClick, true);
+      document.removeEventListener('mouseover', handleMouseOver);
+      document.removeEventListener('mouseout', handleMouseOut);
 
-    document.querySelectorAll('[data-design-hover]').forEach(el => {
-      el.removeAttribute('data-design-hover');
-    });
+      document.querySelectorAll('[data-design-hover]').forEach(el => {
+        el.removeAttribute('data-design-hover');
+      });
+    }
   }
-});
+);
 </script>
 
-<template>
-  <ToastContainer />
-  <DesignModeUI />
-</template>
+<!--
+  与 @xagi/design-mode-client-react 注入入口对齐：React 端仅挂载 DesignModeProvider + DesignModeManager，
+  DesignModeManager 返回 null，不在 iframe 内渲染「Design Mode」开关/编辑面板。
+  设计模式开关与样式编辑由父应用（XAGI shell 等）通过 TOGGLE_DESIGN_MODE / 后续消息驱动。
+  若宿主需要本地面板，可从包内导出自行挂载 DesignModeUI.vue / ToastContainer.vue。
+-->
+<template></template>

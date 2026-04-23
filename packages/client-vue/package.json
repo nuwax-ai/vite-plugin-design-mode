@@ -1,6 +1,6 @@
 {
   "name": "@xagi/design-mode-client-vue",
-  "version": "1.1.0-beta.8",
+  "version": "1.1.0-beta.11",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -8,10 +8,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && node ./scripts/copy-vue-to-dist.mjs"
   },
   "dependencies": {
-    "@xagi/design-mode-shared": "1.1.0-beta.8",
+    "@xagi/design-mode-shared": "1.1.0-beta.11",
     "tailwind-merge": "^3.4.0"
   },
   "peerDependencies": {

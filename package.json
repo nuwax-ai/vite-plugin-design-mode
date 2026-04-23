@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-appdev-design-mode-monorepo",
-  "version": "1.1.0-beta.8",
+  "version": "1.1.0-beta.11",
   "description": "Vite plugin for Design Mode - enables source mapping and visual editing for React/Vue projects",
   "private": true,
   "type": "module",
