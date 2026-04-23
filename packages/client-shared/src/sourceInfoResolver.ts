@@ -135,6 +135,12 @@ export function resolveSourceInfo(element: HTMLElement): SourceInfo | null {
         return extractSourceInfo(element);
     }
 
+    // Only walk up for elements inside component definitions (both parent and child
+    // have static-content in the same file). Regular nested HTML should use its own sourceInfo.
+    if (!isInComponentDefinition(element)) {
+        return extractSourceInfo(element);
+    }
+
     let currentElement: HTMLElement | null = element;
     let depth = 0;
 
