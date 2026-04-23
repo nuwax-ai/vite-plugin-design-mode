@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { performUpdate, UpdateRequest } from './codeUpdater';
+import { performUpdate, UpdateRequest } from './codeUpdater.js';
 
 export interface BatchUpdateRequest {
   updates: UpdateRequest[];

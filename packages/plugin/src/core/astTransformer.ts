@@ -1,5 +1,5 @@
 import * as babel from '@babel/standalone';
-import { createSourceMappingPlugin } from './sourceMapper';
+import { createSourceMappingPlugin } from './sourceMapper.js';
 import type { DesignModeOptions } from '../types';
 
 export function transformSourceCode(

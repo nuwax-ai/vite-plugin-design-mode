@@ -2,7 +2,7 @@ import type { ViteDevServer } from 'vite';
 import type { DesignModeOptions } from '../types';
 import * as fs from 'fs';
 import * as path from 'path';
-import { applyVueSfcTemplateUpdate } from './vueSfcUpdater';
+import { applyVueSfcTemplateUpdate } from './vueSfcUpdater.js';
 
 export function createServerMiddleware(
   options: Required<DesignModeOptions>,

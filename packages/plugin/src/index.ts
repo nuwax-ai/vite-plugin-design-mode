@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
-import { createServerMiddleware } from './core/serverMiddleware';
-import { transformSourceCode } from './core/astTransformer';
-import { transformVueSfcTemplate } from './core/vueSfcTransformer';
+import { createServerMiddleware } from './core/serverMiddleware.js';
+import { transformSourceCode } from './core/astTransformer.js';
+import { transformVueSfcTemplate } from './core/vueSfcTransformer.js';
 
 
 export interface DesignModeOptions {
