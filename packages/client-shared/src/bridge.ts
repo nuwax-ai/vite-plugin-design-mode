@@ -205,7 +205,15 @@ export class EnhancedBridge implements BridgeInterface {
       return;
     }
 
-    // Completes a pending sendWithResponse
+    // 父窗口 -> iframe 的控制类消息：必须优先走业务分发，不能误判为 RPC response。
+    // 否则像 TOGGLE_DESIGN_MODE 这类同样带 requestId/timestamp 的消息会被 isResponseMessage
+    // 吞掉，导致 bridge.on('TOGGLE_DESIGN_MODE') 永远不触发，父页面一直等不到 DESIGN_MODE_CHANGED。
+    if (this.isIframeEnvironment() && this.isParentToIframeCommand(message)) {
+      this.dispatchMessage(message);
+      return;
+    }
+
+    // Completes a pending sendWithResponse（仅处理真正的响应类型，避免与父到子命令冲突）
     if (this.isResponseMessage(message)) {
       this.handleResponseMessage(message);
       return;
@@ -255,12 +263,34 @@ export class EnhancedBridge implements BridgeInterface {
     return supportedTypes.includes(type);
   }
 
-  /** ACK or carries requestId. */
+  /**
+   * 是否为 sendWithResponse / ACK 通道的响应消息。
+   * 注意：不能仅凭 requestId + timestamp 判断，否则父页面发来的 TOGGLE_DESIGN_MODE
+   *（同样带 requestId）会被误判为 response，从而跳过 dispatchMessage。
+   */
   private isResponseMessage(message: any): message is RequestResponseMessage {
-    return message && 
-      (message.type === 'ACKNOWLEDGEMENT' || 
-       message.requestId !== undefined) &&
-      (message.timestamp !== undefined);
+    if (!message || typeof message.type !== 'string') {
+      return false;
+    }
+    if (message.requestId === undefined || message.timestamp === undefined) {
+      return false;
+    }
+    return (
+      message.type === 'ACKNOWLEDGEMENT' ||
+      message.type === 'HEALTH_CHECK_RESPONSE'
+    );
+  }
+
+  /** 父窗口发往 iframe 的控制命令（在 iframe 内必须由业务 handler 处理） */
+  private isParentToIframeCommand(message: DesignModeMessage): boolean {
+    const t = (message as { type?: string }).type;
+    return (
+      t === 'TOGGLE_DESIGN_MODE' ||
+      t === 'UPDATE_STYLE' ||
+      t === 'UPDATE_CONTENT' ||
+      t === 'BATCH_UPDATE' ||
+      t === 'HEALTH_CHECK'
+    );
   }
 
   /**
