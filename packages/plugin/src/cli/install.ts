@@ -270,6 +270,8 @@ function addPluginConfig(content: string): string {
 
 function main() {
   console.log('Installing @xagi/vite-plugin-design-mode...\n');
+  const installerVersion = getPluginVersion();
+  console.log(`[vite-plugin-design-mode] installer version: ${installerVersion}`);
   const projectRoot = findProjectRoot();
   console.log(`Project root: ${projectRoot}\n`);
 
@@ -302,7 +304,7 @@ function main() {
     process.exit(1);
   }
 
-  const pluginVersion = getPluginVersion();
+  const pluginVersion = installerVersion;
   const isInstalled = isPluginInstalled(packageJson);
   const updatedPackageJson = addPluginToPackageJson(packageJson, pluginVersion);
   const versionString = `^${pluginVersion}`;
