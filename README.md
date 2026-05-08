@@ -91,36 +91,75 @@ yarn add @xagi/vite-plugin-design-mode --dev
 pnpm add @xagi/vite-plugin-design-mode -D
 ```
 
+### 预发布 / XAGI 集成（推荐）
+
+`1.1.x` 预发布会频繁发 **`1.1.0-beta.N`**，registry 上历史 beta 会自然变多。**模板、宿主应用、内部文档请不要写死某个 `beta.N`**，否则每发一版就要改依赖。
+
+集成时请**统一跟 `next` dist-tag**（始终对应当前灰度线）：
+
+```bash
+pnpm add @xagi/vite-plugin-design-mode@next -D
+# 若直接依赖 client 包（少见），同样使用 @next：
+# pnpm add @xagi/design-mode-client-vue@next -D
+```
+
+`package.json` 里可写 **`"^1.1.0-0"`**（接受 `1.1.0` 线下任意预发版本）并定期 `pnpm update`；或在文档与 CI 中约定：**安装/升级一律执行 `pnpm add @xagi/vite-plugin-design-mode@next -D`**，由 lockfile 固定实际解析版本。
+
+稳定正式版发布后仍从 **`latest`** 安装即可（与上面预发布通道互不干扰）。
+
 ## 版本发布与 Tag 策略
 
 为避免预发布版本影响生产用户，仓库采用以下 npm dist-tag 规则：
 
 - `latest`：仅用于稳定正式版（如 `1.0.37`、`1.1.0`）
-- `beta`：用于 beta 预发布版本（如 `1.1.0-beta.2`）
-- `next`：与 `beta` 保持一致，指向同一个预发布版本
+- `next`：**集成方应使用的预发布通道**；标签指向当前推荐的 `1.1.0-beta.*`（或其它预发 semver），版本号会递增，**请勿在对外文档中要求用户锁定某一枚 `beta.N`**
+- `beta`：可选的额外 dist-tag（历史或兼容）；新集成优先跟 `next`
 
-推荐发布流程：
+### 多包发布 SOP（推荐）
+
+发布采用统一版本策略，以下 4 个包必须同版本：
+
+- `@xagi/design-mode-shared`
+- `@xagi/design-mode-client-react`
+- `@xagi/design-mode-client-vue`
+- `@xagi/vite-plugin-design-mode`
 
 ```bash
-# 预发布（默认）
-npm run release
-# 等价于 npm run release:beta，会发布到 --tag beta
+# 1) 切换 npm 官方源（强烈建议每次发布前显式执行）
+nrm use npm
+
+# 2) 如需升级版本，一次性同步全部包版本和内部依赖（版本号按需替换）
+pnpm run release:version:sync -- 1.1.0-beta.12
+
+# 3) 一键发布 next（预检 -> 构建 -> 按依赖顺序发布 -> 发布后校验）
+pnpm run release:next
+
+# 4) 一键发布 beta（与 next 同流程，但写入 beta tag）
+pnpm run release:beta
+
+# 5) 发布前演练（不真正 publish）
+pnpm run release:next:dry-run
+pnpm run release:beta:dry-run
 ```
 
+其中 `release:next` / `release:beta` 都会自动执行以下步骤：
+
+1. `release:preflight`：校验 registry、版本一致性、禁止 `workspace:*` 泄露到发布包
+2. `release:build`：构建所有包
+3. `release:publish:*`：按依赖顺序发布（`shared -> react/vue并发 -> plugin`）
+4. `release:verify:*`：校验对应 dist-tag（`next` 或 `beta`）及目标版本可见性；`verify:next` 对 registry 传播做了**有限次重试**（可用环境变量 `VERIFY_NEXT_MAX_TRIES`、`VERIFY_NEXT_SLEEP_SECS` 调整）
+
+### 常见问题与修复
+
+- 报错 `ERR_PNPM_WORKSPACE_PKG_NOT_FOUND`  
+  原因：发布包中包含 `workspace:*` 依赖。  
+  处理：运行 `release:preflight` 找出问题并改成明确版本号。
+
+- `next` tag 未指向本次版本  
+  处理：
+
 ```bash
-# 正式发布（仅在确认稳定后执行）
-npm run release:latest
-```
-
-如果需要手动校正 dist-tag（例如误把 beta 发布到了 latest）：
-
-```bash
-# 将 latest 回指到稳定版本
-npm dist-tag add @xagi/vite-plugin-design-mode@1.0.37 latest
-
-# 将 beta/next 指向同一个预发布版本
-npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.2 beta
-npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.2 next
+npm dist-tag add @xagi/vite-plugin-design-mode@1.1.0-beta.5 next
 ```
 
 ## Basic Usage
@@ -544,6 +583,19 @@ const CUSTOM_PRESETS = {
 ## 更新日志
 
 完整变更记录见 [`CHANGELOG.md`](./CHANGELOG.md)。
+
+### v1.1.0-beta.5
+- 修复 npm 发布产物中的 workspace 依赖协议问题，确保外部使用 pnpm/npm 安装可正常解析依赖
+
+### v1.1.0-beta.4
+- 修复插件发布后客户端运行时入口解析，优先从安装包解析 React/Vue runtime
+- 增加路径安全校验，避免通过路径前缀绕过项目根目录限制
+- 完成多包迁移后的测试回归修复，测试全量通过
+
+### v1.1.0-beta.3
+- 完成项目向 `packages/*` 多包结构迁移
+- 保留并迁移 CLI 到 plugin 包内，发布产物包含 CLI
+- 调整 examples/test 引用路径，移除根 `src` 目录实现
 
 ### v1.1.0-beta.2
 - 新增 React/Vue 3 动态识别支持（`framework: 'auto'`）

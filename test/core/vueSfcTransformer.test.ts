@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { transformVueSfcTemplate } from '../../src/core/vueSfcTransformer';
-import type { DesignModeOptions } from '../../src/types';
+import { transformVueSfcTemplate } from '../../packages/plugin/src/core/vueSfcTransformer';
+import type { DesignModeOptions } from '../../packages/plugin/src/types';
 
 const options: Required<DesignModeOptions> = {
   enabled: true,

@@ -6,7 +6,7 @@ import {
   extractStringAttributeValue,
   createSourcePositionString,
   parseSourcePositionString,
-} from '../../src/utils/babelHelpers';
+} from '../../packages/plugin/src/utils/babelHelpers';
 import * as t from '@babel/types';
 
 describe('babelHelpers', () => {

@@ -2,6 +2,35 @@
 
 All notable changes to `@xagi/vite-plugin-design-mode` are documented in this file.
 
+## [1.1.0-beta.5] - 2026-04-22
+
+### Fixed
+- Replaced published package workspace protocol dependencies with explicit semver versions to avoid `ERR_PNPM_WORKSPACE_PKG_NOT_FOUND` in external installs.
+- Aligned internal package dependency graph for published artifacts:
+  - `@xagi/vite-plugin-design-mode -> @xagi/design-mode-client-react/@xagi/design-mode-client-vue/@xagi/design-mode-shared`
+  - `@xagi/design-mode-client-react -> @xagi/design-mode-shared`
+  - `@xagi/design-mode-client-vue -> @xagi/design-mode-shared`
+
+## [1.1.0-beta.4] - 2026-04-22
+
+### Fixed
+- Plugin runtime entry resolution now prefers installed client packages (`@xagi/design-mode-client-react` / `@xagi/design-mode-client-vue`) to avoid publish-time client loading failures.
+- Hardened file path validation in update middleware and code updater to prevent path-prefix traversal bypass.
+- Updated and stabilized test suites after monorepo migration; full test run passes.
+
+### Changed
+- Published `1.1.0-beta.4` to `next` tag for prerelease consumption.
+
+## [1.1.0-beta.3] - 2026-04-22
+
+### Changed
+- Migrated repository to pnpm workspace multi-package layout under `packages/*`.
+- Removed legacy root `src` implementation and moved active sources to package-local directories.
+- Updated examples/tests to consume package-based paths.
+
+### Added
+- Kept CLI support in the plugin package and included CLI entry in published artifacts.
+
 ## [1.1.0-beta.2] - 2026-04-22
 
 ### Added

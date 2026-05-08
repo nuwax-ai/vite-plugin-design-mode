@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { transformSourceCode } from '../../src/core/astTransformer';
-import type { DesignModeOptions } from '../../src/types';
+import { transformSourceCode } from '../../packages/plugin/src/core/astTransformer';
+import type { DesignModeOptions } from '../../packages/plugin/src/types';
 
 describe('astTransformer', () => {
   const mockOptions: Required<DesignModeOptions> = {

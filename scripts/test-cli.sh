@@ -44,9 +44,9 @@ echo ""
 
 # 4. Test install
 echo -e "${BLUE}📥 Step 3: Testing install...${NC}"
-echo "Running: node ../../dist/cli/index.js install"
+echo "Running: node ../../packages/plugin/dist/cli/index.js install"
 echo ""
-node ../../dist/cli/index.js install
+node ../../packages/plugin/dist/cli/index.js install
 echo ""
 echo -e "${GREEN}✓ Install test done${NC}"
 echo ""
@@ -56,9 +56,9 @@ echo ""
 
 # 5. Test uninstall
 echo -e "${BLUE}📤 Step 4: Testing uninstall...${NC}"
-echo "Running: node ../../dist/cli/index.js uninstall"
+echo "Running: node ../../packages/plugin/dist/cli/index.js uninstall"
 echo ""
-node ../../dist/cli/index.js uninstall
+node ../../packages/plugin/dist/cli/index.js uninstall
 echo ""
 echo -e "${GREEN}✓ Uninstall test done${NC}"
 echo ""

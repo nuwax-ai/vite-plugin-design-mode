@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyVueSfcTemplateUpdate } from '../../src/core/vueSfcUpdater';
+import { applyVueSfcTemplateUpdate } from '../../packages/plugin/src/core/vueSfcUpdater';
 
 function getLineColumnByToken(source: string, token: string): { line: number; column: number } {
   const index = source.indexOf(token);
