@@ -56,11 +56,6 @@ interface DesignModeState {
 
 const DESIGN_MODE_KEY = Symbol('design-mode');
 
-// TEMP: 生产环境调试日志（问题排查完成后请删除）
-const vueRuntimeTempLog = (message: string, data?: unknown) => {
-  console.log(`[DesignModeDebug][IFRAME-VUE3][TEMP] ${message}`, data);
-};
-
 /**
  * Vue3 composable for design mode management
  * Provides global state and actions for design mode functionality
@@ -116,13 +111,6 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
    * postMessage when iframe + connected
    */
   const sendToParent = (message: IframeToParentMessage) => {
-    vueRuntimeTempLog('sendToParent called', {
-      type: message.type,
-      requestId: (message as { requestId?: string }).requestId,
-      iframeModeEnabled: state.config.iframeMode?.enabled,
-      bridgeConnected: bridge.isConnected(),
-    });
-
     if (!state.config.iframeMode?.enabled) {
       return;
     }
@@ -130,15 +118,6 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
     // Use bridge if connected, fallback to direct postMessage
     if (bridge.isConnected()) {
       bridge.send(message).catch(error => {
-        vueRuntimeTempLog('bridge.send failed, fallback to parent.postMessage', {
-          type: message.type,
-          requestId: (message as { requestId?: string }).requestId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        console.warn(
-          '[DesignMode] Bridge send failed, fallback to window.parent.postMessage',
-          error
-        );
         if (window.self !== window.top) {
           window.parent.postMessage(message, '*');
         }
@@ -147,10 +126,6 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
     }
 
     if (window.self !== window.top) {
-      vueRuntimeTempLog('bridge disconnected, direct parent.postMessage', {
-        type: message.type,
-        requestId: (message as { requestId?: string }).requestId,
-      });
       window.parent.postMessage(message, '*');
     }
   };
@@ -806,21 +781,10 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
       unsubscribeHandlers.value.push(
         bridge.on<ToggleDesignModeMessage>('TOGGLE_DESIGN_MODE', message => {
           const newState = message.enabled;
-          vueRuntimeTempLog('received TOGGLE_DESIGN_MODE', {
-            enabled: message.enabled,
-            requestId: message.requestId,
-            timestamp: message.timestamp,
-            bridgeConnected: bridge.isConnected(),
-          });
           state.isDesignMode = newState;
 
           // Echo DESIGN_MODE_CHANGED
           if (window.self !== window.top) {
-            vueRuntimeTempLog('sending DESIGN_MODE_CHANGED', {
-              enabled: newState,
-              requestId: message.requestId,
-              timestamp: Date.now(),
-            });
             sendToParent({
               type: 'DESIGN_MODE_CHANGED',
               enabled: newState,
@@ -902,13 +866,6 @@ export function createDesignMode(userConfig: DesignModeConfig = {}) {
   };
 
   onMounted(() => {
-    vueRuntimeTempLog('createDesignMode mounted', {
-      href: window.location.href,
-      origin: window.location.origin,
-      isIframe: window.self !== window.top,
-      bridgeConnected: bridge.isConnected(),
-    });
-
     const cleanup = setupBridge();
     if (cleanup) {
       onBeforeUnmount(cleanup);

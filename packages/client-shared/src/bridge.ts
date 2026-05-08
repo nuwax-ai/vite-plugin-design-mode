@@ -32,11 +32,6 @@ export class EnhancedBridge implements BridgeInterface {
   private heartbeatTimer?: NodeJS.Timeout;
   private connectionCheckTimer?: NodeJS.Timeout;
 
-  // TEMP: 生产环境调试日志（问题排查完成后请删除）
-  private tempLog(message: string, data?: unknown) {
-    console.log(`[DesignModeDebug][BRIDGE][TEMP] ${message}`, data);
-  }
-
   constructor(config: Partial<BridgeConfig> = {}) {
     this.config = {
       timeout: 10000,
@@ -57,12 +52,6 @@ export class EnhancedBridge implements BridgeInterface {
     if (typeof window === 'undefined') return;
 
     window.addEventListener('message', this.handleMessage.bind(this));
-    this.tempLog('initializeMessageHandling', {
-      href: window.location.href,
-      origin: window.location.origin,
-      isIframe: this.isIframeEnvironment(),
-    });
-
     if (this.isIframeEnvironment()) {
       setTimeout(() => {
         this._isConnected = true;
@@ -89,8 +78,6 @@ export class EnhancedBridge implements BridgeInterface {
         },
         timestamp: this.createTimestamp()
       };
-      this.tempLog('send BRIDGE_READY', readyMessage);
-      
       this.getTargetWindow().postMessage(readyMessage, '*');
       this.log('Sent ready message to parent');
     } catch (error) {
@@ -154,8 +141,11 @@ export class EnhancedBridge implements BridgeInterface {
 
   /** Log bridge state to the console (dev aid). */
   public diagnose(): void {
+    // Diagnose output is explicitly gated by debug mode to avoid noisy runtime logs.
+    if (!this.config.debug) return;
+
     const env = this.getEnvironmentInfo();
-    
+
     console.group('[EnhancedBridge] Bridge Diagnosis');
     console.log('Environment:', env);
     console.log('Connection Status:', this._isConnected);
@@ -183,15 +173,6 @@ export class EnhancedBridge implements BridgeInterface {
     // }
 
     const message = event.data;
-    if (message?.type === 'TOGGLE_DESIGN_MODE') {
-      this.tempLog('handleMessage received TOGGLE_DESIGN_MODE', {
-        message,
-        origin: event.origin,
-        sourceIsParent:
-          typeof window !== 'undefined' ? event.source === window.parent : false,
-      });
-    }
-    
     // Drop malformed payloads
     if (!this.isValidMessage(message)) {
       this.log('Invalid message received:', message);
@@ -302,10 +283,7 @@ export class EnhancedBridge implements BridgeInterface {
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      if (!this._isConnected) {
-        console.warn('[EnhancedBridge] Bridge still not connected, message will be queued');
-        return;
-      }
+      if (!this._isConnected) return;
     }
 
     if (!this._isConnected && !this.isIframeEnvironment()) {
@@ -314,20 +292,6 @@ export class EnhancedBridge implements BridgeInterface {
     }
 
     const enhancedMessage = this.enhanceMessage(message);
-    if (
-      enhancedMessage.type === 'DESIGN_MODE_CHANGED' ||
-      enhancedMessage.type === 'TOGGLE_DESIGN_MODE' ||
-      enhancedMessage.type === 'BRIDGE_READY'
-    ) {
-      this.tempLog('send message', {
-        type: enhancedMessage.type,
-        requestId: enhancedMessage.requestId,
-        timestamp: enhancedMessage.timestamp,
-        isConnected: this._isConnected,
-        isIframe: this.isIframeEnvironment(),
-      });
-    }
-    
     try {
       this.log('Sending message:', enhancedMessage);
       
@@ -473,13 +437,6 @@ export class EnhancedBridge implements BridgeInterface {
   /** Invoke all listeners for message.type */
   private dispatchMessage(message: DesignModeMessage) {
     const handlers = this.listeners.get(message.type);
-    if (message.type === 'TOGGLE_DESIGN_MODE' || message.type === 'DESIGN_MODE_CHANGED') {
-      this.tempLog('dispatchMessage', {
-        type: message.type,
-        requestId: (message as { requestId?: string }).requestId,
-        handlersCount: handlers ? handlers.size : 0,
-      });
-    }
     if (handlers) {
       handlers.forEach(handler => {
         try {
@@ -597,6 +554,7 @@ export class EnhancedBridge implements BridgeInterface {
 
   /** Guarded by config.debug */
   private log(...args: any[]) {
+    // Keep debug logging capability for explicit troubleshooting sessions.
     if (this.config.debug) {
       const timestamp = new Date().toISOString();
       console.log(`[${timestamp}] [EnhancedBridge]`, ...args);
