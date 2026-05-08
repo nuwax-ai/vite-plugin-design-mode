@@ -42,6 +42,7 @@
     "release:publish:beta": "bash ./scripts/release-publish-beta.sh",
     "release:verify:next": "bash ./scripts/release-verify-next.sh",
     "release:verify:beta": "bash ./scripts/release-verify-beta.sh",
+    "release:sync:npmmirror": "bash ./scripts/release-sync-npmmirror.sh",
     "release:version:sync": "bash ./scripts/release-version-sync.sh",
     "release:next": "pnpm run release:preflight && pnpm run release:build && pnpm run release:publish:next && pnpm run release:verify:next",
     "release:beta": "pnpm run release:preflight && pnpm run release:build && pnpm run release:publish:beta && pnpm run release:verify:beta",
